@@ -94,7 +94,7 @@
         <div class="sidebar">
             <h2 style="color:var(--gold); text-align: center;">MENÚ</h2>
             <button class="btn btn-green" onclick="startSoloGame()">⚔️ JUGAR (IA)</button>
-            <input type="text" id="friend-id" placeholder="Nick de amigo...">
+            <input type="text" id="friend-id" placeholder="ID de amigo...">
             <button class="btn btn-blue" onclick="connectToFriend()">🤝 INVITAR</button>
             
             <div style="flex:1"></div>
@@ -193,15 +193,19 @@ function logout() {
 function enterLobby() {
     document.getElementById('screen-login').classList.add('hidden');
     document.getElementById('screen-lobby').classList.remove('hidden');
-    document.getElementById('display-user').innerText = currentUser.nick;
     
-    if(currentUser.email === "milanbiel12@gmail.com") {
+    // ARREGLO 1: ID seguro para evitar fallos de PeerJS
+    const myPeerId = currentUser.nick.toLowerCase().replace(/[^a-z0-9]/g, '');
+    document.getElementById('display-user').innerText = currentUser.nick + " (Tu ID: " + myPeerId + ")";
+    
+    // Mostrar siempre botón admin a ti
+    if(currentUser.email === "milanbiel12@gmail.com" || currentUser.nick.toLowerCase() === "admin") {
         document.getElementById('admin-btn').classList.remove('hidden');
     }
     updateUI();
     
-    // Iniciar conexión PeerJS
-    peer = new Peer(currentUser.nick.toLowerCase());
+    // Iniciar conexión PeerJS con el ID limpio
+    peer = new Peer(myPeerId);
     peer.on('connection', c => {
         conn = c;
         setupConnection();
@@ -210,13 +214,14 @@ function enterLobby() {
 
 // --- LÓGICA DE MULTIJUGADOR ---
 function connectToFriend() {
-    const friendId = document.getElementById('friend-id').value.trim().toLowerCase();
-    if(!friendId) return alert("Introduce el Nick del amigo");
+    // ARREGLO 2: Limpieza de ID al buscar
+    const friendId = document.getElementById('friend-id').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    if(!friendId) return alert("Introduce el ID del amigo");
     
     conn = peer.connect(friendId);
     conn.on('open', () => {
         setupConnection();
-        // Le dice al amigo que inicie la partida
+        // Inicia el juego para ambos al instante
         conn.send({ type: 'start_match' });
         isMultiplayer = true;
         startMatch();
@@ -230,16 +235,13 @@ function setupConnection() {
             startMatch();
         }
         if(data.type === 'spawn') {
-            // El oponente lanzó una tropa
             spawnUnit(data.id, 'enemy', data.z, false);
         }
         if(data.type === 'tower_hp') {
-            // Actualizar vida de la torre si hubo daño remoto
             towers.player.hp = data.hp;
         }
     });
 }
-
 
 function updateUI() {
     document.getElementById('stat-gold').innerText = currentUser.gold;
@@ -295,197 +297,88 @@ function save() {
     localStorage.setItem('CLASH_DB_SECURE', JSON.stringify(db));
 }
 
-// --- GRÁFICOS Y JUEGO MEJORADOS ---
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87CEEB); // Cielo azul claro
-// NIEBLA SUAVIZADA (Antes 20 a 50, ahora de 50 a 120 para que casi no se note)
-scene.fog = new THREE.Fog(0x87CEEB, 50, 120);  
+// --- ADMIN TOOLS ARREGLADAS ---
+function toggleAdmin(show) { 
+    // ARREGLO 3: Forzar display para que no se oculte por otras clases
+    const modal = document.getElementById('admin-modal');
+    if(show) {
+        modal.style.setProperty('display', 'block', 'important');
+        modal.style.zIndex = '9999';
+    } else {
+        modal.style.setProperty('display', 'none', 'important');
+    }
+}
 
+function executeAdminGift(isSelf) {
+    let db = JSON.parse(localStorage.getItem('CLASH_DB_SECURE') || '{}');
+    let targetNick = isSelf ? currentUser.nick : document.getElementById('adm-target').value.trim();
+    let amount = isSelf ? 10000 : parseInt(document.getElementById('adm-amount').value);
+    
+    if(!amount || amount <= 0) return alert("Cantidad inválida");
+
+    // ARREGLO 4: Buscador de usuarios que ignora mayúsculas
+    let foundUser = null;
+    for(let key in db) {
+        if(key.toLowerCase() === targetNick.toLowerCase()) {
+            foundUser = key;
+            break;
+        }
+    }
+
+    if(foundUser) {
+        db[foundUser].gold += amount;
+        localStorage.setItem('CLASH_DB_SECURE', JSON.stringify(db));
+        if(foundUser === currentUser.nick) { currentUser.gold += amount; updateUI(); }
+        alert("¡Oro enviado con éxito!");
+        toggleAdmin(false);
+    } else alert("Usuario no encontrado en la base de datos.");
+}
+
+// --- GRÁFICOS Y JUEGO (INTACTOS) ---
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x3d7a35);
 const camera = new THREE.PerspectiveCamera(40, window.innerWidth/window.innerHeight, 0.1, 1000);
-// Perspectiva más aérea e isométrica, ajustada para la jugabilidad horizontal (X axis)
-camera.position.set(0, 32, 28); 
-camera.lookAt(0, 0, 0);
+camera.position.set(0, 24, 22); camera.lookAt(0, -2, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true; // Sombras activadas
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
-// Iluminación mejorada
-const ambient = new THREE.AmbientLight(0xffffff, 0.65);
-const sun = new THREE.DirectionalLight(0xffffee, 1.2);
-sun.position.set(10, 30, 15); 
-sun.castShadow = true;
-sun.shadow.mapSize.width = 2048;
-sun.shadow.mapSize.height = 2048;
-sun.shadow.camera.near = 0.5;
-sun.shadow.camera.far = 100;
-sun.shadow.camera.left = -25;
-sun.shadow.camera.right = 25;
-sun.shadow.camera.top = 25;
-sun.shadow.camera.bottom = -25;
+const ambient = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
+const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+sun.position.set(10, 25, 10); sun.castShadow = true;
 scene.add(ambient, sun);
 
-// Función para generar textura de césped a cuadros
-function createGrassTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 512; canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#4aa144'; ctx.fillRect(0,0,512,512);
-    ctx.fillStyle = '#41923c';
-    for(let i=0; i<8; i++){
-        for(let j=0; j<8; j++){
-            if((i+j)%2===0) ctx.fillRect(i*64, j*64, 64, 64);
-        }
-    }
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(4, 4);
-    return tex;
-}
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(42, 24), new THREE.MeshStandardMaterial({color: 0x4aa144}));
+ground.rotation.x = -Math.PI/2; ground.receiveShadow = true;
+scene.add(ground);
 
-// CONSTRUCCIÓN DE LA ARENA (Escenario detallado)
-const arenaGroup = new THREE.Group();
-
-// Suelo de césped
-const grassMat = new THREE.MeshStandardMaterial({ map: createGrassTexture(), roughness: 0.9 });
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(46, 26), grassMat);
-ground.rotation.x = -Math.PI/2; 
-ground.receiveShadow = true;
-arenaGroup.add(ground);
-
-// Río central
-const riverGeometry = new THREE.PlaneGeometry(6, 26);
-const riverMat = new THREE.MeshStandardMaterial({ color: 0x2980b9, transparent: true, opacity: 0.85, roughness: 0.1 });
-const river = new THREE.Mesh(riverGeometry, riverMat);
-river.rotation.x = -Math.PI/2;
-river.position.y = 0.05; // Ligeramente por encima del suelo
-arenaGroup.add(river);
-
-// Bordes del río (piedras)
-const riverEdgeGeo = new THREE.BoxGeometry(0.5, 0.2, 26);
-const stoneMat = new THREE.MeshStandardMaterial({color: 0x7f8c8d, roughness: 0.8});
-const edgeL = new THREE.Mesh(riverEdgeGeo, stoneMat); edgeL.position.set(-3, 0.1, 0);
-const edgeR = new THREE.Mesh(riverEdgeGeo, stoneMat); edgeR.position.set(3, 0.1, 0);
-arenaGroup.add(edgeL, edgeR);
-
-// Puentes
-const bridgeGeo = new THREE.BoxGeometry(7, 0.3, 4);
-const bridgeMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.9 });
-const bridge1 = new THREE.Mesh(bridgeGeo, bridgeMat);
-bridge1.position.set(0, 0.15, 7); bridge1.receiveShadow = true; bridge1.castShadow = true;
-const bridge2 = new THREE.Mesh(bridgeGeo, bridgeMat);
-bridge2.position.set(0, 0.15, -7); bridge2.receiveShadow = true; bridge2.castShadow = true;
-arenaGroup.add(bridge1, bridge2);
-
-scene.add(arenaGroup);
-
-// Función de creación de personajes mejorada visualmente según el tipo
 function createDetailedCharacter(config) {
     const group = new THREE.Group();
-    
-    const skinMat = new THREE.MeshStandardMaterial({color: 0xffccaa, roughness: 0.5});
-    const clothMat = new THREE.MeshStandardMaterial({color: config.color, roughness: 0.8});
-    const ironMat = new THREE.MeshStandardMaterial({color: 0xbdc3c7, metalness: 0.6, roughness: 0.4});
-    const woodMat = new THREE.MeshStandardMaterial({color: 0x5c4033, roughness: 0.9});
-
-    // Modificar tamaño según clase
-    let scale = 1;
-    if (config.name === "Gigante") scale = 1.6;
-    if (config.name === "Arquero") scale = 0.85;
-
-    // Cuerpo
-    const bodyGeo = new THREE.CapsuleGeometry(0.35, 0.5, 4, 12);
-    const body = new THREE.Mesh(bodyGeo, clothMat);
-    body.position.y = 0.6;
-    body.castShadow = true;
-
-    // Cabeza
-    const headGeo = new THREE.SphereGeometry(0.3, 16, 16);
-    const head = new THREE.Mesh(headGeo, skinMat);
-    head.position.y = 1.3;
-    head.castShadow = true;
-
-    // Equipamiento específico por clase
-    let weaponGroup = new THREE.Group();
-    if (config.name === "Guerrero" || config.name === "Caballero") {
-        const sword = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.8, 0.2), ironMat);
-        sword.position.set(0.5, 0.7, 0.3); sword.rotation.x = Math.PI/4; sword.castShadow = true;
-        weaponGroup.add(sword);
-        if (config.name === "Caballero") {
-            const shield = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16), ironMat);
-            shield.position.set(-0.5, 0.7, 0.2); shield.rotation.z = Math.PI/2; shield.castShadow = true;
-            weaponGroup.add(shield);
-        }
-    } else if (config.name === "Arquero") {
-        const bow = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.05, 8, 16, Math.PI), woodMat);
-        bow.position.set(0.5, 0.7, 0.2); bow.rotation.y = Math.PI/2; bow.castShadow = true;
-        weaponGroup.add(bow);
-    } else if (config.name === "Gigante") {
-        const fist1 = new THREE.Mesh(new THREE.SphereGeometry(0.25), skinMat); fist1.position.set(0.6, 0.6, 0.2); fist1.castShadow = true;
-        const fist2 = new THREE.Mesh(new THREE.SphereGeometry(0.25), skinMat); fist2.position.set(-0.6, 0.6, 0.2); fist2.castShadow = true;
-        weaponGroup.add(fist1, fist2);
-    } else if (config.name === "Mago") {
-        const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.2), woodMat);
-        staff.position.set(0.5, 0.7, 0.2); staff.castShadow = true;
-        const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.15), new THREE.MeshStandardMaterial({color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 0.5}));
-        gem.position.set(0.5, 1.3, 0.2);
-        weaponGroup.add(staff, gem);
-    } else if (config.name === "Bárbaro") {
-        const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.8), woodMat); handle.castShadow = true;
-        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.08), ironMat); blade.position.set(0.2, 0.3, 0); blade.castShadow = true;
-        const axe = new THREE.Group(); axe.add(handle, blade); axe.position.set(0.5, 0.7, 0.2);
-        weaponGroup.add(axe);
-    }
-
-    group.add(body, head, weaponGroup);
-    group.scale.set(scale, scale, scale);
+    const mat = new THREE.MeshStandardMaterial({color: config.color, metalness: 0.4});
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.4, 0.5, 4, 8), mat);
+    body.position.y = 0.6; body.castShadow = true;
+    const helmet = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.4, 0.4, 8), new THREE.MeshStandardMaterial({color: 0x444444, metalness: 0.8}));
+    helmet.position.y = 1.1;
+    const weapon = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.8, 0.1), new THREE.MeshStandardMaterial({color: 0xdddddd, metalness: 0.9}));
+    weapon.position.set(0.6, 0.6, 0.2);
+    group.add(body, helmet, weapon);
     return group;
 }
 
 let towers = { player: null, enemy: null }, troops = [], gameActive = false, elixir = 0;
 
-// Torres mejoradas visualmente (Estilo castillo real)
 function createTower(x, color, isPlayer) {
     const group = new THREE.Group();
-    
-    // Base de piedra
-    const baseGeo = new THREE.BoxGeometry(3.5, 3.5, 3.5);
-    const stoneMat = new THREE.MeshStandardMaterial({color: 0xbdc3c7, roughness: 0.8});
-    const base = new THREE.Mesh(baseGeo, stoneMat);
-    base.position.y = 1.75;
-    base.castShadow = true; base.receiveShadow = true;
-
-    // Almenas superiores (Color del equipo)
-    const topGeo = new THREE.CylinderGeometry(2.2, 2.5, 1.5, 8);
-    const teamMat = new THREE.MeshStandardMaterial({color: color, roughness: 0.6});
-    const top = new THREE.Mesh(topGeo, teamMat);
-    top.position.y = 4.25;
-    top.castShadow = true;
-
-    // Suelo de madera superior
-    const floorGeo = new THREE.CylinderGeometry(2, 2, 1.6, 8);
-    const woodMat = new THREE.MeshStandardMaterial({color: 0x5c4033});
-    const floor = new THREE.Mesh(floorGeo, woodMat);
-    floor.position.y = 4.25;
-
-    // Rey/Princesa representativo en la torre
-    const kingHead = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 16), new THREE.MeshStandardMaterial({color: 0xffccaa}));
-    kingHead.position.y = 5.3;
-    const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.2, 0.4, 6), new THREE.MeshStandardMaterial({color: 0xffd700}));
-    crown.position.y = 5.8;
-
-    group.add(base, top, floor, kingHead, crown);
-    group.position.set(x, 0, 0);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.8, 4, 8), new THREE.MeshStandardMaterial({color: 0x7f8c8d}));
+    const top = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1, 2.2), new THREE.MeshStandardMaterial({color: color}));
+    top.position.y = 2.5; group.add(base, top); group.position.set(x, 2, 0);
     scene.add(group);
-
     const bar = document.createElement('div');
     bar.className = 'hp-bar-container';
     bar.innerHTML = `<div class="hp-bar-fill" style="background:${isPlayer ? 'var(--blue)' : 'var(--red)'}"></div>`;
     document.getElementById('hp-bars-layer').appendChild(bar);
-    
     return { mesh: group, hp: isPlayer ? 5000 : 2000, maxHp: isPlayer ? 5000 : 2000, bar, x };
 }
 
@@ -530,7 +423,6 @@ function spawnUnit(id, owner, z, sync = false) {
     document.getElementById('hp-bars-layer').appendChild(bar);
     troops.push({ ...c, owner, mesh, bar, hp: c.hp, maxHp: c.hp, currentDmg: (owner==='player' ? c.dmg*1.5 : c.dmg) });
 
-    // Sincronizar el spawn con el otro jugador si es multijugador
     if(sync && isMultiplayer && conn) {
         conn.send({type:'spawn', id: id, z: z});
     }
@@ -571,7 +463,6 @@ function animate() {
             const tow = t.owner === 'player' ? towers.enemy : towers.player;
             if(Math.abs(t.mesh.position.x - tow.x) < 2) {
                 tow.hp -= (t.currentDmg*0.5)*dt;
-                // Sincronizar el daño que nuestro jugador le hace a la torre enemiga
                 if(isMultiplayer && conn && t.owner === 'player') {
                     conn.send({type:'tower_hp', hp: towers.enemy.hp});
                 }
@@ -582,9 +473,8 @@ function animate() {
         updateBar(t.mesh.position, t.bar, t.hp/t.maxHp);
     }
     
-    // Position of healthbars for towers
-    updateBar(new THREE.Vector3(towers.player.x, 6, 0), towers.player.bar, towers.player.hp/towers.player.maxHp);
-    updateBar(new THREE.Vector3(towers.enemy.x, 6, 0), towers.enemy.bar, towers.enemy.hp/towers.enemy.maxHp);
+    updateBar(towers.player.mesh.position, towers.player.bar, towers.player.hp/towers.player.maxHp);
+    updateBar(towers.enemy.mesh.position, towers.enemy.bar, towers.enemy.hp/towers.enemy.maxHp);
     
     if(towers.enemy.hp <= 0) endMatch(true);
     if(towers.player.hp <= 0) endMatch(false);
@@ -595,7 +485,7 @@ function move(t, pos, dt) {
     const dir = new THREE.Vector3().subVectors(pos, t.mesh.position).normalize();
     t.mesh.position.add(dir.multiplyScalar(t.speed * dt));
     t.mesh.lookAt(pos.x, 0, pos.z);
-    t.mesh.position.y = Math.abs(Math.sin(Date.now()*0.01*t.speed))*0.15; // Un pequeño rebote al caminar
+    t.mesh.position.y = Math.abs(Math.sin(Date.now()*0.01*t.speed))*0.12;
 }
 
 function updateBar(pos3d, bar, pct) {

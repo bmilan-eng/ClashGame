@@ -3,231 +3,420 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mini Clash 3D - Royal Edition</title>
+    <title>Mini Clash 3D - Pro Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root {
-            --gold: #FFD700; --blue-clash: #2980b9; --dark-blue: #1a2a3a;
-            --btn-orange: linear-gradient(180deg, #f39c12, #d35400);
-            --btn-blue: linear-gradient(180deg, #3498db, #2980b9);
-        }
+        :root { --gold: #FFD700; --elixir: #ff00ff; --blue: #2196F3; --red: #F44336; --dark: #121212; }
+        body { margin: 0; overflow: hidden; font-family: 'Verdana', sans-serif; background: #000; color: white; user-select: none; }
 
-        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Verdana', sans-serif; background: #000; color: white; overflow: hidden; }
-
-        /* --- PANTALLA DE LOGIN --- */
-        #auth-screen {
-            position: absolute; width: 100%; height: 100%; z-index: 100;
+        .screen {
+            position: absolute; width: 100%; height: 100%;
             background: radial-gradient(circle, #2c3e50, #000);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 100; transition: 0.5s;
         }
-        .auth-box {
-            background: rgba(0,0,0,0.85); padding: 30px; border-radius: 20px;
-            border: 3px solid var(--gold); width: 320px; text-align: center;
-            box-shadow: 0 0 30px rgba(0,0,0,0.5);
-        }
-
-        /* --- LOBBY PRINCIPAL --- */
-        #lobby-screen {
-            position: absolute; width: 100%; height: 100%;
-            background: linear-gradient(180deg, #3498db 0%, #1a2a3a 100%);
-            display: flex; flex-direction: column; z-index: 10;
-        }
-        
-        /* Barra Superior */
-        .top-bar {
-            display: flex; justify-content: space-around; padding: 15px 10px;
-            background: rgba(0,0,0,0.4); border-bottom: 3px solid #000;
-        }
-        .res-pill {
-            background: #000; border: 2px solid #555; padding: 5px 15px;
-            border-radius: 25px; font-weight: bold; font-size: 0.9rem;
-            display: flex; align-items: center; gap: 8px;
-        }
-
-        /* Contenido Central */
-        .center-content {
-            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            text-align: center; padding-bottom: 80px;
-        }
-        .character-preview { font-size: 100px; margin-bottom: 20px; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.5)); }
-        
-        .battle-btn {
-            width: 240px; height: 65px; margin: 10px; border-radius: 15px;
-            border: 4px solid #fff; color: white; font-size: 22px; font-weight: bold;
-            text-shadow: 2px 2px #000; cursor: pointer; transition: 0.2s;
-            box-shadow: 0 6px 0 rgba(0,0,0,0.3);
-        }
-        .btn-bot { background: var(--btn-orange); }
-        .btn-invite { background: var(--btn-blue); }
-        .battle-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,0.3); }
-
-        /* Barra de Navegación */
-        .nav-bar {
-            height: 80px; background: #2c3e50; display: flex;
-            justify-content: space-around; align-items: center; border-top: 4px solid #000;
-        }
-        .nav-icon { font-size: 30px; cursor: pointer; opacity: 0.6; transition: 0.3s; }
-        .nav-icon.active { opacity: 1; transform: scale(1.2) translateY(-5px); }
-
-        /* --- CLANES / OVERLAYS --- */
-        #clan-panel {
-            position: absolute; bottom: 80px; width: 100%; height: 65%;
-            background: #1a1a1a; border-radius: 25px 25px 0 0;
-            border-top: 4px solid var(--gold); transform: translateY(110%);
-            transition: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 20;
-        }
-        #clan-panel.open { transform: translateY(0); }
-
-        /* --- ELEMENTOS DE JUEGO --- */
-        #game-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; pointer-events: none; }
-        .hp-bar { position: absolute; width: 50px; height: 6px; background: #000; border: 1px solid #fff; }
-        
         .hidden { display: none !important; }
-        input { width: 85%; padding: 12px; margin: 10px 0; border-radius: 10px; border: none; background: #333; color: white; }
+
+        .panel {
+            background: rgba(0,0,0,0.9); padding: 30px; border-radius: 25px;
+            border: 3px solid var(--gold); text-align: center; width: 400px;
+            box-shadow: 0 0 40px rgba(0,0,0,0.8);
+        }
+
+        input {
+            padding: 12px; width: 85%; border-radius: 10px; border: 2px solid #444;
+            margin: 8px 0; font-size: 1rem; text-align: center; background: #222; color: white;
+        }
+        
+        .btn {
+            padding: 15px 25px; border-radius: 12px; border: none; cursor: pointer;
+            font-weight: bold; text-transform: uppercase; margin: 8px; width: 95%;
+            transition: 0.2s; box-shadow: 0 4px 0 rgba(0,0,0,0.4);
+        }
+        .btn-green { background: linear-gradient(#2ecc71, #27ae60); color: white; }
+        .btn-blue { background: linear-gradient(#3498db, #2980b9); color: white; }
+        .btn-red { background: linear-gradient(#e74c3c, #c0392b); color: white; }
+
+        /* LOBBY LAYOUT */
+        #screen-lobby { background: linear-gradient(135deg, #1a2a3a 0%, #000 100%); flex-direction: row; align-items: stretch; }
+        
+        .sidebar { width: 300px; background: rgba(0,0,0,0.5); border-right: 2px solid var(--gold); padding: 20px; display: flex; flex-direction: column; }
+        .main-content { flex: 1; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; }
+        
+        .stat-bar { background: #000; padding: 10px 20px; border-radius: 30px; border: 2px solid #333; display: flex; justify-content: space-between; margin-bottom: 20px; }
+        
+        /* GRID DE CARTAS */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 10px; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 15px; }
+        .item-card { background: #222; padding: 10px; border-radius: 10px; text-align: center; cursor: pointer; border: 2px solid transparent; }
+        .item-card.active { border-color: var(--gold); background: #332a00; }
+
+        /* HUD JUEGO */
+        #game-ui { position: absolute; width: 100%; height: 100%; pointer-events: none; z-index: 50; }
+        .hp-bar-container { position: absolute; width: 50px; height: 6px; background: rgba(0,0,0,0.5); border: 1px solid #fff; border-radius: 3px; transform: translate(-50%, -50%); }
+        .hp-bar-fill { height: 100%; width: 100%; transition: width 0.2s; }
+        
+        #hud-bottom { position: absolute; bottom: 0; width: 100%; height: 160px; background: linear-gradient(transparent, rgba(0,0,0,0.9)); display: flex; flex-direction: column; align-items: center; pointer-events: auto; }
+        #elixir-wrapper { display: flex; align-items: center; gap: 10px; margin-top: 5px; }
+        #elixir-num { font-size: 1.5rem; font-weight: bold; color: var(--elixir); }
+        #elixir-container { width: 300px; height: 16px; background: #111; border: 2px solid #fff; border-radius: 10px; overflow: hidden; }
+        #elixir-fill { height: 100%; width: 0%; background: var(--elixir); }
+        #hand { display: flex; gap: 10px; margin-top: 10px; }
+        .card { width: 75px; height: 100px; background: white; border-radius: 8px; color: black; border: 3px solid #444; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; }
+
+        /* ADMIN PANEL POPUP */
+        #admin-modal { position: absolute; background: #900; padding: 20px; border: 3px solid #fff; border-radius: 15px; z-index: 200; display: none; }
     </style>
 </head>
 <body>
 
-    <div id="auth-screen">
-        <div class="auth-box">
-            <h2 style="color:var(--gold)">MINI CLASH 3D</h2>
-            <input type="text" id="reg-nick" placeholder="Tu Nickname">
-            <input type="email" id="reg-email" placeholder="Gmail">
-            <input type="password" id="reg-pass" placeholder="Password">
-            <button class="battle-btn btn-bot" style="width:100%; height:50px; font-size:18px;" onclick="handleLogin()">ENTRAR</button>
+    <div id="screen-login" class="screen">
+        <div class="panel">
+            <h1 style="margin:0">MINI CLASH <span style="color:var(--gold)">3D</span></h1>
+            <p id="auth-msg" style="font-size: 0.8rem; color: #aaa;">Introduce tus datos para guardar progreso</p>
+            
+            <input type="email" id="auth-email" placeholder="Correo Electrónico">
+            <input type="text" id="auth-nick" placeholder="Nickname">
+            <input type="password" id="auth-pass" placeholder="Contraseña">
+            
+            <div style="display: flex; gap: 5px;">
+                <button class="btn btn-green" onclick="handleAuth('login')">ENTRAR</button>
+                <button class="btn btn-blue" onclick="handleAuth('register')">REGISTRARSE</button>
+            </div>
         </div>
     </div>
 
-    <div id="lobby-screen" class="hidden">
-        <div class="top-bar">
-            <div class="res-pill">🏆 <span id="stat-wins">0</span></div>
-            <div class="res-pill">💰 <span id="stat-gold">0</span></div>
-            <div class="res-pill" style="border-color:#ff00ff">💧 <span id="stat-elixir">10</span></div>
-        </div>
-
-        <div class="center-content">
-            <h2 id="display-name" style="margin:5px; text-shadow: 2px 2px #000;">NICKNAME</h2>
-            <div id="admin-badge" style="background:red; font-size:10px; padding:2px 8px; border-radius:5px; display:none;">ADMIN</div>
-            <div class="character-preview">🤴</div>
+    <div id="screen-lobby" class="screen hidden">
+        <div class="sidebar">
+            <h2 style="color:var(--gold); text-align: center;">MENU</h2>
+            <button class="btn btn-green" style="height: 80px; font-size: 1.2rem;" onclick="startSoloGame()">⚔️ JUGAR (IA)</button>
             
-            <button class="battle-btn btn-bot" onclick="startBattle('bot')">BATALLA BOT</button>
-            <button class="battle-btn btn-invite" onclick="sendInvite()">INVITAR AMIGO</button>
+            <div style="margin-top: 20px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 15px;">
+                <p style="font-size: 0.8rem; margin: 5px 0;">AMIGOS ONLINE</p>
+                <input type="text" id="friend-id" placeholder="Nick de amigo..." style="width: 80%; font-size: 0.8rem;">
+                <button class="btn btn-blue" onclick="connectToFriend()">INVITAR</button>
+            </div>
+
+            <div style="flex: 1;"></div> <button id="admin-btn" class="btn btn-red hidden" onclick="toggleAdmin()">⚙️ ADMIN PANEL</button>
+            <button class="btn btn-red" style="width: 50px; align-self: center;" onclick="location.reload()">🚪</button>
         </div>
 
-        <div id="clan-panel">
-            <div style="padding:20px; display:flex; flex-direction:column; height:100%;">
-                <h3 style="margin:0">CHAT DE CLAN</h3>
-                <div id="clan-chat" style="flex:1; background:#000; border-radius:10px; margin:10px 0; padding:10px; overflow-y:auto;"></div>
-                <div style="display:flex; gap:10px;">
-                    <input type="text" id="clan-input" placeholder="Escribe..." style="margin:0; flex:1">
-                    <button class="battle-btn btn-bot" style="width:60px; height:45px; margin:0;" onclick="sendClanMsg()">➤</button>
+        <div class="main-content">
+            <div class="stat-bar">
+                <span>💰 <b id="stat-gold">0</b></span>
+                <span>👤 <b id="display-user" style="color:var(--gold)">-</b></span>
+                <span>🏆 <b id="stat-wins">0</b></span>
+            </div>
+
+            <div style="display: flex; gap: 20px; height: 75%;">
+                <div style="flex: 1;">
+                    <h3>🛒 TIENDA</h3>
+                    <div id="shop-grid" class="grid" style="max-height: 400px; overflow-y: auto;"></div>
+                </div>
+                <div style="flex: 1;">
+                    <h3>🎴 TU MAZO</h3>
+                    <div id="deck-grid" class="grid"></div>
                 </div>
             </div>
-        </div>
 
-        <div class="nav-bar">
-            <div class="nav-icon">🛒</div>
-            <div class="nav-icon">🎴</div>
-            <div class="nav-icon active" onclick="setNav(this, 'home')">⚔️</div>
-            <div class="nav-icon" onclick="setNav(this, 'clan')">🛡️</div>
-            <div class="nav-icon">🏆</div>
+            <div style="text-align: center; color: #666; font-size: 0.7rem;">Mini Clash 3D - v2.0 - Local Persistence Enabled</div>
+        </div>
+    </div>
+
+    <div id="admin-modal">
+        <h3>MAESTRO DE MONEDAS</h3>
+        <input type="text" id="adm-target" placeholder="Nickname del objetivo">
+        <input type="number" id="adm-amount" placeholder="Cantidad Oro">
+        <div style="display:flex; gap:5px;">
+            <button class="btn btn-green" onclick="executeAdminGift()">DAR ORO</button>
+            <button class="btn btn-red" onclick="toggleAdmin()">CERRAR</button>
         </div>
     </div>
 
     <div id="game-ui" class="hidden">
-        <div id="elixir-bar" style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); width:300px; height:20px; background:#222; border:2px solid #fff; border-radius:10px; overflow:hidden;">
-            <div id="elixir-fill" style="width:50%; height:100%; background:#ff00ff;"></div>
-            <div id="elixir-val" style="position:absolute; width:100%; text-align:center; font-weight:bold;">5</div>
+        <div id="hp-bars-layer"></div>
+        <div id="hud-bottom">
+            <div id="elixir-wrapper">
+                <div id="elixir-num">0</div>
+                <div id="elixir-container"><div id="elixir-fill"></div></div>
+            </div>
+            <div id="hand"></div>
         </div>
     </div>
 
 <script>
-    // --- DATOS Y PERSISTENCIA ---
-    let user = { nick: "", email: "", gold: 1000, wins: 0 };
-    let peer, conn, gameActive = false;
+/* --- SISTEMA DE PERSISTENCIA Y CUENTAS --- */
+let currentUser = null;
 
-    function handleLogin() {
-        const email = document.getElementById('reg-email').value;
-        const nick = document.getElementById('reg-nick').value;
-        if(!email || !nick) return alert("Rellena los datos");
+function handleAuth(mode) {
+    const email = document.getElementById('auth-email').value.trim().toLowerCase();
+    const nick = document.getElementById('auth-nick').value.trim();
+    const pass = document.getElementById('auth-pass').value;
 
-        const saved = localStorage.getItem('clash_cloud_' + email);
-        user = saved ? JSON.parse(saved) : { nick, email, gold: 1000, wins: 0 };
-        save();
-        
-        document.getElementById('auth-screen').classList.add('hidden');
-        document.getElementById('lobby-screen').classList.remove('hidden');
-        updateUI();
-        initPeer();
-    }
+    if(!email || !pass || (mode === 'register' && !nick)) return alert("Completa todos los campos");
 
-    function save() { localStorage.setItem('clash_cloud_' + user.email, JSON.stringify(user)); }
+    let users = JSON.parse(localStorage.getItem('CLASH_USERS_DB') || '{}');
 
-    function updateUI() {
-        document.getElementById('display-name').innerText = user.nick;
-        document.getElementById('stat-gold').innerText = user.gold;
-        document.getElementById('stat-wins').innerText = user.wins;
-        if(user.email === "milanbiel12@gmail.com") document.getElementById('admin-badge').style.display = "inline-block";
-    }
-
-    // --- SISTEMA ONLINE (CLAN & INVITE) ---
-    function initPeer() {
-        // ID basado en el nick para conectar fácil
-        peer = new Peer(user.nick.toLowerCase().replace(/\s/g, '-'));
-        peer.on('open', (id) => console.log("Peer ID:", id));
-        peer.on('connection', (c) => {
-            conn = c;
-            setupChat();
-            alert("¡Conexión recibida de " + c.peer + "!");
-        });
-    }
-
-    function sendInvite() {
-        const friend = prompt("Escribe el Nick del amigo:");
-        if(!friend) return;
-        conn = peer.connect(friend.toLowerCase().replace(/\s/g, '-'));
-        setupChat();
-    }
-
-    function setupChat() {
-        conn.on('data', (data) => {
-            if(data.type === 'msg') addChat(conn.peer, data.txt);
-        });
-    }
-
-    function sendClanMsg() {
-        const txt = document.getElementById('clan-input').value;
-        if(!txt || !conn) return alert("Conecta con alguien primero para chatear");
-        conn.send({type:'msg', txt});
-        addChat("Tú", txt);
-        document.getElementById('clan-input').value = "";
-    }
-
-    function addChat(name, txt) {
-        const box = document.getElementById('clan-chat');
-        box.innerHTML += `<div><b style="color:var(--gold)">${name}:</b> ${txt}</div>`;
-        box.scrollTop = box.scrollHeight;
-    }
-
-    // --- LÓGICA DE NAVEGACIÓN ---
-    function setNav(el, mode) {
-        document.querySelectorAll('.nav-icon').forEach(i => i.classList.remove('active'));
-        el.classList.add('active');
-        document.getElementById('clan-panel').classList.toggle('open', mode === 'clan');
-    }
-
-    // --- INICIO DE BATALLA (IA / BOT) ---
-    function startBattle(mode) {
-        if(mode === 'bot') {
-            document.getElementById('lobby-screen').classList.add('hidden');
-            document.getElementById('game-ui').classList.remove('hidden');
-            gameActive = true;
-            // Aquí iría el inicio de la escena Three.js (index.html que tenías)
-            alert("Iniciando batalla contra el BOT...");
-            // Nota: Para integrar el 3D, pegarías aquí la función init3D() de tu archivo anterior.
+    if(mode === 'register') {
+        if(users[nick]) return alert("El nickname ya existe");
+        users[nick] = { email, nick, pass, gold: 1000, wins: 0, owned: [0,1,2,3], deck: [0,1,2,3] };
+        localStorage.setItem('CLASH_USERS_DB', JSON.stringify(users));
+        alert("¡Registro completado! Ahora inicia sesión.");
+    } else {
+        // Login - Buscamos por nick
+        const user = users[nick];
+        if(user && user.pass === pass && user.email === email) {
+            currentUser = user;
+            enterLobby();
+        } else {
+            alert("Datos incorrectos");
         }
     }
+}
+
+function saveCurrentState() {
+    if(!currentUser) return;
+    let users = JSON.parse(localStorage.getItem('CLASH_USERS_DB') || '{}');
+    users[currentUser.nick] = currentUser;
+    localStorage.setItem('CLASH_USERS_DB', JSON.stringify(users));
+}
+
+function enterLobby() {
+    document.getElementById('screen-login').classList.add('hidden');
+    document.getElementById('screen-lobby').classList.remove('hidden');
+    document.getElementById('display-user').innerText = currentUser.nick;
+    
+    // Check Admin
+    if(currentUser.email === "milanbiel12@gmail.com") {
+        document.getElementById('admin-btn').classList.remove('hidden');
+    }
+
+    updateLobbyUI();
+    peer = new Peer(currentUser.nick.toLowerCase());
+    peer.on('connection', c => { conn = c; setupConn(); });
+}
+
+/* --- PANEL ADMIN --- */
+function toggleAdmin() {
+    const m = document.getElementById('admin-modal');
+    m.style.display = m.style.display === 'block' ? 'none' : 'block';
+}
+
+function executeAdminGift() {
+    const targetNick = document.getElementById('adm-target').value.trim();
+    const amount = parseInt(document.getElementById('adm-amount').value);
+    
+    let users = JSON.parse(localStorage.getItem('CLASH_USERS_DB') || '{}');
+    
+    if(users[targetNick]) {
+        users[targetNick].gold += amount;
+        localStorage.setItem('CLASH_USERS_DB', JSON.stringify(users));
+        if(currentUser.nick === targetNick) {
+            currentUser.gold += amount;
+            updateLobbyUI();
+        }
+        alert("¡Oro enviado con éxito!");
+    } else {
+        alert("Usuario no encontrado en este navegador");
+    }
+}
+
+/* --- CONFIGURACIÓN BASE DE DATOS CARTAS (Mismo que antes) --- */
+const CHARS_DB = [];
+const types = ["Guerrero", "Arquero", "Gigante", "Mago", "Caballero", "Bárbaro"];
+const icons = ["⚔️", "🏹", "🧔", "🔥", "🛡️", "🪓"];
+for(let i=0; i<50; i++) {
+    const t = i % types.length;
+    CHARS_DB.push({
+        id: i, name: types[t], emoji: icons[t],
+        hp: 120 + (i*15), dmg: 25 + (i*5), cost: 2 + (i%4), speed: 2 + Math.random(),
+        price: i * 200, color: new THREE.Color().setHSL((i*0.13)%1, 0.7, 0.5).getHex()
+    });
+}
+
+function updateLobbyUI() {
+    document.getElementById('stat-gold').innerText = currentUser.gold;
+    document.getElementById('stat-wins').innerText = currentUser.wins;
+    
+    const shop = document.getElementById('shop-grid'); shop.innerHTML = '';
+    CHARS_DB.forEach(c => {
+        const owned = currentUser.owned.includes(c.id);
+        const div = document.createElement('div');
+        div.className = `item-card ${owned ? 'active' : ''}`;
+        div.innerHTML = `<div>${c.emoji}</div><small>${owned ? 'LISTO' : '💰'+c.price}</small>`;
+        div.onclick = () => { 
+            if(!owned && currentUser.gold >= c.price) { 
+                currentUser.gold -= c.price; currentUser.owned.push(c.id); 
+                saveCurrentState(); updateLobbyUI(); 
+            }
+        };
+        shop.appendChild(div);
+    });
+
+    const deck = document.getElementById('deck-grid'); deck.innerHTML = '';
+    currentUser.owned.forEach(id => {
+        const c = CHARS_DB[id];
+        const inDeck = currentUser.deck.includes(id);
+        const div = document.createElement('div');
+        div.className = `item-card ${inDeck ? 'active' : ''}`;
+        div.innerHTML = `<div>${c.emoji}</div><small>${inDeck ? 'MAZO' : 'USAR'}</small>`;
+        div.onclick = () => { 
+            if(!inDeck) { 
+                if(currentUser.deck.length >= 4) currentUser.deck.shift(); 
+                currentUser.deck.push(id); saveCurrentState(); updateLobbyUI(); 
+            }
+        };
+        deck.appendChild(div);
+    });
+}
+
+/* --- LÓGICA 3D Y MULTIPLAYER (Original mantenida) --- */
+let peer, conn, isMultiplayer = false;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x3d7a35);
+const camera = new THREE.PerspectiveCamera(40, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.set(0, 24, 22); camera.lookAt(0, -2, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+const ambient = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
+const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+sun.position.set(10, 25, 10); sun.castShadow = true;
+scene.add(ambient, sun);
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(42, 24), new THREE.MeshStandardMaterial({color: 0x4aa144}));
+ground.rotation.x = -Math.PI/2; ground.receiveShadow = true;
+scene.add(ground);
+
+function createDetailedCharacter(config) {
+    const group = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({color: config.color, metalness: 0.4});
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.4, 0.5, 4, 8), mat);
+    body.position.y = 0.6; body.castShadow = true;
+    const helmet = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.4, 0.4, 8), new THREE.MeshStandardMaterial({color: 0x444444, metalness: 0.8}));
+    helmet.position.y = 1.1;
+    group.add(body, helmet);
+    return group;
+}
+
+let towers = { player: null, enemy: null }, troops = [], gameActive = false, elixir = 0;
+
+function createTower(x, color, isPlayer) {
+    const group = new THREE.Group();
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.8, 4, 8), new THREE.MeshStandardMaterial({color: 0x7f8c8d}));
+    const top = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1, 2.2), new THREE.MeshStandardMaterial({color: color}));
+    top.position.y = 2.5; group.add(base, top); group.position.set(x, 2, 0);
+    scene.add(group);
+    const bar = document.createElement('div');
+    bar.className = 'hp-bar-container';
+    bar.innerHTML = `<div class="hp-bar-fill" style="background:${isPlayer ? 'var(--blue)' : 'var(--red)'}"></div>`;
+    document.getElementById('hp-bars-layer').appendChild(bar);
+    return { mesh: group, hp: isPlayer ? 5000 : 2000, maxHp: isPlayer ? 5000 : 2000, bar, x };
+}
+
+function startMatch() {
+    document.getElementById('screen-lobby').classList.add('hidden');
+    document.getElementById('game-ui').classList.remove('hidden');
+    document.getElementById('hp-bars-layer').innerHTML = '';
+    troops.forEach(t => { scene.remove(t.mesh); if(t.bar) t.bar.remove(); });
+    troops = [];
+    if(towers.player) scene.remove(towers.player.mesh);
+    if(towers.enemy) scene.remove(towers.enemy.mesh);
+    towers.player = createTower(-16, 0x2196F3, true);
+    towers.enemy = createTower(16, 0xF44336, false);
+    gameActive = true; elixir = 5;
+    renderHand(); animate();
+}
+
+function startSoloGame() { isMultiplayer = false; startMatch(); }
+
+function spawnUnit(id, owner, z, sync) {
+    const c = CHARS_DB[id];
+    const mesh = createDetailedCharacter(c);
+    mesh.position.set(owner === 'player' ? -14 : 14, 0, z);
+    scene.add(mesh);
+    const bar = document.createElement('div');
+    bar.className = 'hp-bar-container';
+    bar.innerHTML = `<div class="hp-bar-fill" style="background:${owner === 'player' ? 'var(--blue)' : 'var(--red)'}"></div>`;
+    document.getElementById('hp-bars-layer').appendChild(bar);
+    troops.push({ ...c, owner, mesh, bar, hp: c.hp, maxHp: c.hp, currentDmg: (owner==='player' ? c.dmg*1.5 : c.dmg) });
+    if(sync && isMultiplayer && conn) conn.send({type:'spawn', id, z});
+}
+
+function renderHand() {
+    const h = document.getElementById('hand'); h.innerHTML = '';
+    currentUser.deck.forEach(id => {
+        const c = CHARS_DB[id];
+        const d = document.createElement('div');
+        d.className = 'card';
+        d.innerHTML = `<span style="color:var(--elixir)">💧${c.cost}</span><div style="font-size:1.5rem">${c.emoji}</div>`;
+        d.onclick = () => { if(elixir >= c.cost) { spawnUnit(id, 'player', (Math.random()-0.5)*8, true); elixir -= c.cost; }};
+        h.appendChild(d);
+    });
+}
+
+function animate() {
+    if(!gameActive) return;
+    requestAnimationFrame(animate);
+    const dt = 0.016;
+    elixir = Math.min(10, elixir + dt * 0.7);
+    document.getElementById('elixir-fill').style.width = (elixir * 10) + "%";
+    document.getElementById('elixir-num').innerText = Math.floor(elixir);
+
+    if(!isMultiplayer && Math.random() < 0.0035) spawnUnit(Math.floor(Math.random()*6), 'enemy', (Math.random()-0.5)*8, false);
+
+    for(let i = troops.length-1; i>=0; i--) {
+        const t = troops[i];
+        if(t.hp <= 0) { scene.remove(t.mesh); t.bar.remove(); troops.splice(i,1); continue; }
+        let target = null, minDist = 5;
+        troops.forEach(e => { if(e.owner !== t.owner) { let d = t.mesh.position.distanceTo(e.mesh.position); if(d < minDist) { minDist = d; target = e; }}});
+        if(target) {
+            if(minDist < 1.2) target.hp -= t.currentDmg * dt;
+            else move(t, target.mesh.position, dt);
+        } else {
+            const tow = t.owner === 'player' ? towers.enemy : towers.player;
+            if(Math.abs(t.mesh.position.x - tow.x) < 2) tow.hp -= (t.currentDmg*0.5)*dt;
+            else move(t, new THREE.Vector3(tow.x, 0, 0), dt);
+        }
+        updateBar(t.mesh.position, t.bar, t.hp/t.maxHp);
+    }
+    updateBar(towers.player.mesh.position, towers.player.bar, towers.player.hp/towers.player.maxHp);
+    updateBar(towers.enemy.mesh.position, towers.enemy.bar, towers.enemy.hp/towers.enemy.maxHp);
+    if(towers.enemy.hp <= 0) endMatch(true);
+    if(towers.player.hp <= 0) endMatch(false);
+    renderer.render(scene, camera);
+}
+
+function move(t, pos, dt) {
+    const dir = new THREE.Vector3().subVectors(pos, t.mesh.position).normalize();
+    t.mesh.position.add(dir.multiplyScalar(t.speed * dt));
+    t.mesh.lookAt(pos.x, 0, pos.z);
+}
+
+function updateBar(pos3d, bar, pct) {
+    const v = pos3d.clone().project(camera);
+    bar.style.left = (v.x * 0.5 + 0.5) * window.innerWidth + "px";
+    bar.style.top = (-(v.y * 0.5 - 0.5) * window.innerHeight) - 40 + "px";
+    bar.firstChild.style.width = Math.max(0, pct * 100) + "%";
+}
+
+function endMatch(win) {
+    gameActive = false;
+    alert(win ? "¡VICTORIA REAL! +500 Oro" : "DERROTA");
+    if(win) { currentUser.gold += 500; currentUser.wins++; saveCurrentState(); }
+    document.getElementById('game-ui').classList.add('hidden');
+    document.getElementById('screen-lobby').classList.remove('hidden');
+    updateLobbyUI();
+}
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
 </script>
 </body>
 </html>

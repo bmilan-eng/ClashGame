@@ -145,6 +145,7 @@
 
 <script>
 let currentUser = null;
+let peer = null, conn = null, isMultiplayer = false;
 
 // --- SISTEMA DE CUENTAS (AUTO-LOGIN) ---
 window.onload = () => {
@@ -198,8 +199,47 @@ function enterLobby() {
         document.getElementById('admin-btn').classList.remove('hidden');
     }
     updateUI();
+    
+    // Iniciar conexión PeerJS
     peer = new Peer(currentUser.nick.toLowerCase());
+    peer.on('connection', c => {
+        conn = c;
+        setupConnection();
+    });
 }
+
+// --- LÓGICA DE MULTIJUGADOR ---
+function connectToFriend() {
+    const friendId = document.getElementById('friend-id').value.trim().toLowerCase();
+    if(!friendId) return alert("Introduce el Nick del amigo");
+    
+    conn = peer.connect(friendId);
+    conn.on('open', () => {
+        setupConnection();
+        // Le dice al amigo que inicie la partida
+        conn.send({ type: 'start_match' });
+        isMultiplayer = true;
+        startMatch();
+    });
+}
+
+function setupConnection() {
+    isMultiplayer = true;
+    conn.on('data', data => {
+        if(data.type === 'start_match') {
+            startMatch();
+        }
+        if(data.type === 'spawn') {
+            // El oponente lanzó una tropa
+            spawnUnit(data.id, 'enemy', data.z, false);
+        }
+        if(data.type === 'tower_hp') {
+            // Actualizar vida de la torre si hubo daño remoto
+            towers.player.hp = data.hp;
+        }
+    });
+}
+
 
 function updateUI() {
     document.getElementById('stat-gold').innerText = currentUser.gold;
@@ -317,29 +357,37 @@ function createTower(x, color, isPlayer) {
     return { mesh: group, hp: isPlayer ? 5000 : 2000, maxHp: isPlayer ? 5000 : 2000, bar, x };
 }
 
-function startSoloGame() {
+function startMatch() {
     document.getElementById('screen-lobby').classList.add('hidden');
     document.getElementById('game-ui').classList.remove('hidden');
     document.getElementById('hp-bars-layer').innerHTML = '';
-    troops.forEach(t => { scene.remove(t.mesh); t.bar.remove(); });
+    troops.forEach(t => { scene.remove(t.mesh); if(t.bar) t.bar.remove(); });
     troops = [];
     if(towers.player) scene.remove(towers.player.mesh);
     if(towers.enemy) scene.remove(towers.enemy.mesh);
     towers.player = createTower(-16, 0x2196F3, true);
     towers.enemy = createTower(16, 0xF44336, false);
     gameActive = true; elixir = 5;
-    renderHand(); animate();
+    renderHand(); 
+    animate();
+}
+
+function startSoloGame() {
+    isMultiplayer = false;
+    startMatch();
 }
 
 function quitMatch() {
     gameActive = false;
+    isMultiplayer = false;
+    if(conn) { conn.close(); conn = null; }
     alert("Te has retirado de la partida.");
     document.getElementById('game-ui').classList.add('hidden');
     document.getElementById('screen-lobby').classList.remove('hidden');
     updateUI();
 }
 
-function spawnUnit(id, owner, z) {
+function spawnUnit(id, owner, z, sync = false) {
     const c = CHARS_DB[id];
     const mesh = createDetailedCharacter(c);
     mesh.position.set(owner === 'player' ? -14 : 14, 0, z);
@@ -349,6 +397,11 @@ function spawnUnit(id, owner, z) {
     bar.innerHTML = `<div class="hp-bar-fill" style="background:${owner === 'player' ? 'var(--blue)' : 'var(--red)'}"></div>`;
     document.getElementById('hp-bars-layer').appendChild(bar);
     troops.push({ ...c, owner, mesh, bar, hp: c.hp, maxHp: c.hp, currentDmg: (owner==='player' ? c.dmg*1.5 : c.dmg) });
+
+    // Sincronizar el spawn con el otro jugador si es multijugador
+    if(sync && isMultiplayer && conn) {
+        conn.send({type:'spawn', id: id, z: z});
+    }
 }
 
 function renderHand() {
@@ -358,7 +411,7 @@ function renderHand() {
         const d = document.createElement('div');
         d.className = 'card';
         d.innerHTML = `<span style="color:var(--elixir)">💧${c.cost}</span><div style="font-size:1.5rem">${c.emoji}</div>`;
-        d.onclick = () => { if(elixir >= c.cost) { spawnUnit(id, 'player', (Math.random()-0.5)*8); elixir -= c.cost; }};
+        d.onclick = () => { if(elixir >= c.cost) { spawnUnit(id, 'player', (Math.random()-0.5)*8, true); elixir -= c.cost; }};
         h.appendChild(d);
     });
 }
@@ -371,20 +424,28 @@ function animate() {
     document.getElementById('elixir-fill').style.width = (elixir * 10) + "%";
     document.getElementById('elixir-num').innerText = Math.floor(elixir);
 
-    if(Math.random() < 0.0035) spawnUnit(Math.floor(Math.random()*6), 'enemy', (Math.random()-0.5)*8);
+    if(!isMultiplayer && Math.random() < 0.0035) spawnUnit(Math.floor(Math.random()*6), 'enemy', (Math.random()-0.5)*8, false);
 
     for(let i = troops.length-1; i>=0; i--) {
         const t = troops[i];
         if(t.hp <= 0) { scene.remove(t.mesh); t.bar.remove(); troops.splice(i,1); continue; }
         let target = null, minDist = 5;
         troops.forEach(e => { if(e.owner !== t.owner) { let d = t.mesh.position.distanceTo(e.mesh.position); if(d < minDist) { minDist = d; target = e; }}});
+        
         if(target) {
             if(minDist < 1.2) target.hp -= t.currentDmg * dt;
             else move(t, target.mesh.position, dt);
         } else {
             const tow = t.owner === 'player' ? towers.enemy : towers.player;
-            if(Math.abs(t.mesh.position.x - tow.x) < 2) tow.hp -= (t.currentDmg*0.5)*dt;
-            else move(t, new THREE.Vector3(tow.x, 0, 0), dt);
+            if(Math.abs(t.mesh.position.x - tow.x) < 2) {
+                tow.hp -= (t.currentDmg*0.5)*dt;
+                // Sincronizar el daño que nuestro jugador le hace a la torre enemiga
+                if(isMultiplayer && conn && t.owner === 'player') {
+                    conn.send({type:'tower_hp', hp: towers.enemy.hp});
+                }
+            } else {
+                move(t, new THREE.Vector3(tow.x, 0, 0), dt);
+            }
         }
         updateBar(t.mesh.position, t.bar, t.hp/t.maxHp);
     }
@@ -411,6 +472,8 @@ function updateBar(pos3d, bar, pct) {
 
 function endMatch(win) {
     gameActive = false;
+    isMultiplayer = false;
+    if(conn) { conn.close(); conn = null; }
     alert(win ? "¡VICTORIA! +500 Oro" : "DERROTA");
     if(win) { currentUser.gold += 500; currentUser.wins++; save(); }
     document.getElementById('game-ui').classList.add('hidden');

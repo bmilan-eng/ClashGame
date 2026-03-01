@@ -3,202 +3,231 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mini Clash 3D - Local & Peer Edition</title>
+    <title>Mini Clash 3D - Royal Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root {
-            --gold: #FFD700; --blue: #2196F3; --dark: #1a1a1a;
-            --clash-gradient: linear-gradient(180deg, #5c92ff 0%, #2955a3 100%);
+            --gold: #FFD700; --blue-clash: #2980b9; --dark-blue: #1a2a3a;
+            --btn-orange: linear-gradient(180deg, #f39c12, #d35400);
+            --btn-blue: linear-gradient(180deg, #3498db, #2980b9);
         }
 
-        body { margin: 0; font-family: 'Verdana', sans-serif; background: #000; color: white; overflow: hidden; }
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Verdana', sans-serif; background: #000; color: white; overflow: hidden; }
 
-        /* --- LOGIN SIMULADO --- */
-        .screen { position: absolute; width: 100%; height: 100%; display: flex; flex-direction: column; z-index: 10; transition: 0.5s; }
-        #auth-screen { background: radial-gradient(circle, #2c3e50, #000); align-items: center; justify-content: center; }
-        .auth-box { background: rgba(0,0,0,0.9); padding: 30px; border-radius: 20px; border: 3px solid var(--gold); width: 300px; text-align: center; }
-        input { width: 90%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; background: #333; color: white; }
-        
-        /* --- LOBBY PREMIUM --- */
-        #lobby-screen { background: var(--clash-gradient); }
-        .top-bar { display: flex; justify-content: space-around; background: rgba(0,0,0,0.7); padding: 10px 0; border-bottom: 3px solid #000; }
-        .res { background: #000; border: 2px solid #555; padding: 5px 15px; border-radius: 20px; font-weight: bold; display: flex; align-items: center; gap: 5px; }
-
-        .main-view { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .king-avatar { font-size: 100px; filter: drop-shadow(0 0 20px rgba(255,215,0,0.5)); }
-        
-        .battle-btn { 
-            width: 220px; height: 65px; background: linear-gradient(#f39c12, #d35400); 
-            border: 4px solid white; border-radius: 15px; color: white; font-size: 26px; 
-            font-weight: bold; text-shadow: 2px 2px #000; cursor: pointer; transform: skew(-5deg);
+        /* --- PANTALLA DE LOGIN --- */
+        #auth-screen {
+            position: absolute; width: 100%; height: 100%; z-index: 100;
+            background: radial-gradient(circle, #2c3e50, #000);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .auth-box {
+            background: rgba(0,0,0,0.85); padding: 30px; border-radius: 20px;
+            border: 3px solid var(--gold); width: 320px; text-align: center;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
         }
 
-        /* --- MENÚ INFERIOR --- */
-        .nav-bar { height: 75px; background: #2c3e50; display: flex; justify-content: space-around; align-items: center; border-top: 4px solid #000; }
-        .nav-item { font-size: 28px; cursor: pointer; transition: 0.3s; opacity: 0.6; }
-        .nav-item.active { opacity: 1; transform: scale(1.2); }
+        /* --- LOBBY PRINCIPAL --- */
+        #lobby-screen {
+            position: absolute; width: 100%; height: 100%;
+            background: linear-gradient(180deg, #3498db 0%, #1a2a3a 100%);
+            display: flex; flex-direction: column; z-index: 10;
+        }
+        
+        /* Barra Superior */
+        .top-bar {
+            display: flex; justify-content: space-around; padding: 15px 10px;
+            background: rgba(0,0,0,0.4); border-bottom: 3px solid #000;
+        }
+        .res-pill {
+            background: #000; border: 2px solid #555; padding: 5px 15px;
+            border-radius: 25px; font-weight: bold; font-size: 0.9rem;
+            display: flex; align-items: center; gap: 8px;
+        }
 
-        /* --- CLANES Y CHAT (PEERJS) --- */
-        #clan-panel { 
-            position: absolute; bottom: 75px; width: 100%; height: 60%; 
-            background: #1a1a1a; border-top: 4px solid var(--blue); 
-            transform: translateY(100%); transition: 0.5s; z-index: 20; 
+        /* Contenido Central */
+        .center-content {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; padding-bottom: 80px;
+        }
+        .character-preview { font-size: 100px; margin-bottom: 20px; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.5)); }
+        
+        .battle-btn {
+            width: 240px; height: 65px; margin: 10px; border-radius: 15px;
+            border: 4px solid #fff; color: white; font-size: 22px; font-weight: bold;
+            text-shadow: 2px 2px #000; cursor: pointer; transition: 0.2s;
+            box-shadow: 0 6px 0 rgba(0,0,0,0.3);
+        }
+        .btn-bot { background: var(--btn-orange); }
+        .btn-invite { background: var(--btn-blue); }
+        .battle-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,0.3); }
+
+        /* Barra de Navegación */
+        .nav-bar {
+            height: 80px; background: #2c3e50; display: flex;
+            justify-content: space-around; align-items: center; border-top: 4px solid #000;
+        }
+        .nav-icon { font-size: 30px; cursor: pointer; opacity: 0.6; transition: 0.3s; }
+        .nav-icon.active { opacity: 1; transform: scale(1.2) translateY(-5px); }
+
+        /* --- CLANES / OVERLAYS --- */
+        #clan-panel {
+            position: absolute; bottom: 80px; width: 100%; height: 65%;
+            background: #1a1a1a; border-radius: 25px 25px 0 0;
+            border-top: 4px solid var(--gold); transform: translateY(110%);
+            transition: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 20;
         }
         #clan-panel.open { transform: translateY(0); }
-        #chat-box { height: 70%; overflow-y: auto; padding: 15px; background: #000; margin: 10px; border-radius: 10px; }
 
-        /* --- ADMIN --- */
-        #admin-tag { position: absolute; top: 70px; right: 10px; background: red; padding: 5px 10px; border-radius: 5px; font-size: 10px; cursor: pointer; display: none; }
+        /* --- ELEMENTOS DE JUEGO --- */
+        #game-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; pointer-events: none; }
+        .hp-bar { position: absolute; width: 50px; height: 6px; background: #000; border: 1px solid #fff; }
+        
         .hidden { display: none !important; }
+        input { width: 85%; padding: 12px; margin: 10px 0; border-radius: 10px; border: none; background: #333; color: white; }
     </style>
 </head>
 <body>
 
-    <div id="auth-screen" class="screen">
+    <div id="auth-screen">
         <div class="auth-box">
-            <h2 id="auth-title">HOLA, DESCONOCIDO</h2>
-            <input type="text" id="user-nick" placeholder="Tu Nickname">
-            <input type="email" id="user-email" placeholder="Gmail (Para Admin)">
-            <input type="password" id="user-pass" placeholder="Password">
-            <button class="battle-btn" style="width:100%; height:50px; font-size:18px;" onclick="doLogin()">ENTRAR</button>
+            <h2 style="color:var(--gold)">MINI CLASH 3D</h2>
+            <input type="text" id="reg-nick" placeholder="Tu Nickname">
+            <input type="email" id="reg-email" placeholder="Gmail">
+            <input type="password" id="reg-pass" placeholder="Password">
+            <button class="battle-btn btn-bot" style="width:100%; height:50px; font-size:18px;" onclick="handleLogin()">ENTRAR</button>
         </div>
     </div>
 
-    <div id="lobby-screen" class="screen hidden">
+    <div id="lobby-screen" class="hidden">
         <div class="top-bar">
-            <div class="res">🏆 <span id="val-wins">0</span></div>
-            <div class="res">💰 <span id="val-gold">0</span></div>
-            <div class="res" style="border-color:#f0f">💧 <span id="val-elixir">10</span></div>
+            <div class="res-pill">🏆 <span id="stat-wins">0</span></div>
+            <div class="res-pill">💰 <span id="stat-gold">0</span></div>
+            <div class="res-pill" style="border-color:#ff00ff">💧 <span id="stat-elixir">10</span></div>
         </div>
 
-        <div id="admin-tag" onclick="showAdminMenu()">⚙️ ADMIN PANEL</div>
-
-        <div class="main-view">
-            <h2 id="display-nick">NICKNAME</h2>
-            <div class="king-avatar">🤴</div>
-            <button class="battle-btn" onclick="alert('Buscando rival...')">¡BATALLA!</button>
+        <div class="center-content">
+            <h2 id="display-name" style="margin:5px; text-shadow: 2px 2px #000;">NICKNAME</h2>
+            <div id="admin-badge" style="background:red; font-size:10px; padding:2px 8px; border-radius:5px; display:none;">ADMIN</div>
+            <div class="character-preview">🤴</div>
+            
+            <button class="battle-btn btn-bot" onclick="startBattle('bot')">BATALLA BOT</button>
+            <button class="battle-btn btn-invite" onclick="sendInvite()">INVITAR AMIGO</button>
         </div>
 
         <div id="clan-panel">
-            <div style="padding:15px;">
-                <h3>CHAT DE CLAN (Online)</h3>
-                <div id="chat-box"></div>
-                <div style="display:flex; gap:5px; padding:0 10px;">
-                    <input type="text" id="msg-input" placeholder="Escribe al clan..." style="flex:1; margin:0;">
-                    <button class="battle-btn" style="width:60px; height:45px; margin:0;" onclick="sendChat()">➤</button>
+            <div style="padding:20px; display:flex; flex-direction:column; height:100%;">
+                <h3 style="margin:0">CHAT DE CLAN</h3>
+                <div id="clan-chat" style="flex:1; background:#000; border-radius:10px; margin:10px 0; padding:10px; overflow-y:auto;"></div>
+                <div style="display:flex; gap:10px;">
+                    <input type="text" id="clan-input" placeholder="Escribe..." style="margin:0; flex:1">
+                    <button class="battle-btn btn-bot" style="width:60px; height:45px; margin:0;" onclick="sendClanMsg()">➤</button>
                 </div>
-                <p style="font-size:10px; color:gray; margin-left:15px;">ID para amigos: <b id="my-peer-id">...</b></p>
             </div>
         </div>
 
         <div class="nav-bar">
-            <div class="nav-item">🛒</div>
-            <div class="nav-item">🎴</div>
-            <div class="nav-item active" onclick="toggleClan(false)">⚔️</div>
-            <div class="nav-item" onclick="toggleClan(true)">🛡️</div>
-            <div class="nav-item">🏆</div>
+            <div class="nav-icon">🛒</div>
+            <div class="nav-icon">🎴</div>
+            <div class="nav-icon active" onclick="setNav(this, 'home')">⚔️</div>
+            <div class="nav-icon" onclick="setNav(this, 'clan')">🛡️</div>
+            <div class="nav-icon">🏆</div>
         </div>
     </div>
 
-    <script>
-        let userData = { nick: "", email: "", gold: 1000, wins: 0, pass: "" };
-        let peer, connections = [];
+    <div id="game-ui" class="hidden">
+        <div id="elixir-bar" style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); width:300px; height:20px; background:#222; border:2px solid #fff; border-radius:10px; overflow:hidden;">
+            <div id="elixir-fill" style="width:50%; height:100%; background:#ff00ff;"></div>
+            <div id="elixir-val" style="position:absolute; width:100%; text-align:center; font-weight:bold;">5</div>
+        </div>
+    </div>
 
-        // --- SISTEMA DE CUENTA LOCAL ---
-        function doLogin() {
-            const email = document.getElementById('user-email').value;
-            const nick = document.getElementById('user-nick').value;
-            
-            // Cargar si ya existe
-            const saved = localStorage.getItem('clash_user_' + email);
-            if(saved) {
-                userData = JSON.parse(saved);
-            } else {
-                userData.email = email;
-                userData.nick = nick;
-                saveData();
-            }
+<script>
+    // --- DATOS Y PERSISTENCIA ---
+    let user = { nick: "", email: "", gold: 1000, wins: 0 };
+    let peer, conn, gameActive = false;
 
-            document.getElementById('auth-screen').classList.add('hidden');
-            document.getElementById('lobby-screen').classList.remove('hidden');
-            
-            updateUI();
-            initOnline();
+    function handleLogin() {
+        const email = document.getElementById('reg-email').value;
+        const nick = document.getElementById('reg-nick').value;
+        if(!email || !nick) return alert("Rellena los datos");
+
+        const saved = localStorage.getItem('clash_cloud_' + email);
+        user = saved ? JSON.parse(saved) : { nick, email, gold: 1000, wins: 0 };
+        save();
+        
+        document.getElementById('auth-screen').classList.add('hidden');
+        document.getElementById('lobby-screen').classList.remove('hidden');
+        updateUI();
+        initPeer();
+    }
+
+    function save() { localStorage.setItem('clash_cloud_' + user.email, JSON.stringify(user)); }
+
+    function updateUI() {
+        document.getElementById('display-name').innerText = user.nick;
+        document.getElementById('stat-gold').innerText = user.gold;
+        document.getElementById('stat-wins').innerText = user.wins;
+        if(user.email === "milanbiel12@gmail.com") document.getElementById('admin-badge').style.display = "inline-block";
+    }
+
+    // --- SISTEMA ONLINE (CLAN & INVITE) ---
+    function initPeer() {
+        // ID basado en el nick para conectar fácil
+        peer = new Peer(user.nick.toLowerCase().replace(/\s/g, '-'));
+        peer.on('open', (id) => console.log("Peer ID:", id));
+        peer.on('connection', (c) => {
+            conn = c;
+            setupChat();
+            alert("¡Conexión recibida de " + c.peer + "!");
+        });
+    }
+
+    function sendInvite() {
+        const friend = prompt("Escribe el Nick del amigo:");
+        if(!friend) return;
+        conn = peer.connect(friend.toLowerCase().replace(/\s/g, '-'));
+        setupChat();
+    }
+
+    function setupChat() {
+        conn.on('data', (data) => {
+            if(data.type === 'msg') addChat(conn.peer, data.txt);
+        });
+    }
+
+    function sendClanMsg() {
+        const txt = document.getElementById('clan-input').value;
+        if(!txt || !conn) return alert("Conecta con alguien primero para chatear");
+        conn.send({type:'msg', txt});
+        addChat("Tú", txt);
+        document.getElementById('clan-input').value = "";
+    }
+
+    function addChat(name, txt) {
+        const box = document.getElementById('clan-chat');
+        box.innerHTML += `<div><b style="color:var(--gold)">${name}:</b> ${txt}</div>`;
+        box.scrollTop = box.scrollHeight;
+    }
+
+    // --- LÓGICA DE NAVEGACIÓN ---
+    function setNav(el, mode) {
+        document.querySelectorAll('.nav-icon').forEach(i => i.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById('clan-panel').classList.toggle('open', mode === 'clan');
+    }
+
+    // --- INICIO DE BATALLA (IA / BOT) ---
+    function startBattle(mode) {
+        if(mode === 'bot') {
+            document.getElementById('lobby-screen').classList.add('hidden');
+            document.getElementById('game-ui').classList.remove('hidden');
+            gameActive = true;
+            // Aquí iría el inicio de la escena Three.js (index.html que tenías)
+            alert("Iniciando batalla contra el BOT...");
+            // Nota: Para integrar el 3D, pegarías aquí la función init3D() de tu archivo anterior.
         }
-
-        function saveData() {
-            localStorage.setItem('clash_user_' + userData.email, JSON.stringify(userData));
-        }
-
-        function updateUI() {
-            document.getElementById('display-nick').innerText = userData.nick;
-            document.getElementById('val-gold').innerText = userData.gold;
-            document.getElementById('val-wins').innerText = userData.wins;
-            
-            if(userData.email === "milanbiel12@gmail.com") {
-                document.getElementById('admin-tag').style.display = "block";
-            }
-        }
-
-        // --- SISTEMA ONLINE (PEERJS) ---
-        function initOnline() {
-            // Usamos el nick como ID para que sea fácil encontrarse
-            peer = new Peer(userData.nick.replace(/\s+/g, '-').toLowerCase());
-
-            peer.on('open', (id) => {
-                document.getElementById('my-peer-id').innerText = id;
-                addMsg("Sistema", "Conectado al servidor de clanes.");
-            });
-
-            peer.on('connection', (conn) => {
-                setupConn(conn);
-            });
-        }
-
-        function setupConn(conn) {
-            connections.push(conn);
-            conn.on('data', (data) => {
-                if(data.type === 'chat') addMsg(data.user, data.text);
-                if(data.type === 'admin_gift') {
-                    userData.gold += data.amt;
-                    saveData();
-                    updateUI();
-                    addMsg("ADMIN", "Has recibido " + data.amt + " monedas.");
-                }
-            });
-        }
-
-        function sendChat() {
-            const txt = document.getElementById('msg-input').value;
-            if(!txt) return;
-            addMsg("Tú", txt);
-            connections.forEach(c => c.send({ type: 'chat', user: userData.nick, text: txt }));
-            document.getElementById('msg-input').value = "";
-        }
-
-        function addMsg(user, text) {
-            const box = document.getElementById('chat-box');
-            box.innerHTML += `<div><b>${user}:</b> ${text}</div>`;
-            box.scrollTop = box.scrollHeight;
-        }
-
-        // --- FUNCIONES LOBBY ---
-        function toggleClan(show) {
-            document.getElementById('clan-panel').classList.toggle('open', show);
-        }
-
-        // --- PANEL ADMIN ---
-        function showAdminMenu() {
-            const target = prompt("ID (Nick) del jugador a quien dar monedas:");
-            const amt = parseInt(prompt("Cantidad de monedas:"));
-            
-            const conn = peer.connect(target.replace(/\s+/g, '-').toLowerCase());
-            conn.on('open', () => {
-                conn.send({ type: 'admin_gift', amt: amt });
-                alert("Monedas enviadas a " + target);
-            });
-        }
-    </script>
+    }
+</script>
 </body>
 </html>

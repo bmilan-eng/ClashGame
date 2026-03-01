@@ -298,7 +298,8 @@ function save() {
 // --- GRÁFICOS Y JUEGO MEJORADOS ---
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB); // Cielo azul claro
-scene.fog = new THREE.Fog(0x87CEEB, 20, 50);  // Niebla para profundidad
+// NIEBLA SUAVIZADA (Antes 20 a 50, ahora de 50 a 120 para que casi no se note)
+scene.fog = new THREE.Fog(0x87CEEB, 50, 120);  
 
 const camera = new THREE.PerspectiveCamera(40, window.innerWidth/window.innerHeight, 0.1, 1000);
 // Perspectiva más aérea e isométrica, ajustada para la jugabilidad horizontal (X axis)

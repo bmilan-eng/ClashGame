@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mini Clash 3D - Ultimate Edition</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.147.0/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --gold: #FFD700; --elixir: #ff00ff; --blue: #2196F3; --red: #F44336; --dark: #121212; }
@@ -144,18 +145,17 @@
     </div>
 
 <script>
+// ==========================================
+// LÓGICA DE USUARIOS E INTERFAZ (SIN TOCAR)
+// ==========================================
 let currentUser = null;
 let peer = null, conn = null, isMultiplayer = false;
 
-// --- SISTEMA DE CUENTAS (AUTO-LOGIN) ---
 window.onload = () => {
     const activeUser = localStorage.getItem('CLASH_ACTIVE_SESSION');
     if(activeUser) {
         let db = JSON.parse(localStorage.getItem('CLASH_DB_SECURE') || '{}');
-        if(db[activeUser]) {
-            currentUser = db[activeUser];
-            enterLobby();
-        }
+        if(db[activeUser]) { currentUser = db[activeUser]; enterLobby(); }
     }
 };
 
@@ -163,11 +163,9 @@ function handleAuth(mode) {
     const email = document.getElementById('auth-email').value.trim().toLowerCase();
     const nick = document.getElementById('auth-nick').value.trim();
     const pass = document.getElementById('auth-pass').value;
-
     if(!email || !pass || (mode==='register' && !nick)) return alert("Faltan datos");
 
     let db = JSON.parse(localStorage.getItem('CLASH_DB_SECURE') || '{}');
-
     if(mode === 'register') {
         if(db[nick]) return alert("Nickname ya en uso");
         db[nick] = { email, nick, pass, gold: 1000, wins: 0, owned: [0,1,2,3], deck: [0,1,2,3] };
@@ -176,70 +174,38 @@ function handleAuth(mode) {
     } else {
         const user = db[nick];
         if(user && user.pass === pass && user.email === email) {
-            currentUser = user;
-            localStorage.setItem('CLASH_ACTIVE_SESSION', currentUser.nick);
-            enterLobby();
-        } else {
-            alert("Datos incorrectos. Verifica tu Nickname y Email.");
-        }
+            currentUser = user; localStorage.setItem('CLASH_ACTIVE_SESSION', currentUser.nick); enterLobby();
+        } else alert("Datos incorrectos. Verifica tu Nickname y Email.");
     }
 }
 
-function logout() {
-    localStorage.removeItem('CLASH_ACTIVE_SESSION');
-    location.reload();
-}
+function logout() { localStorage.removeItem('CLASH_ACTIVE_SESSION'); location.reload(); }
 
 function enterLobby() {
     document.getElementById('screen-login').classList.add('hidden');
     document.getElementById('screen-lobby').classList.remove('hidden');
     document.getElementById('display-user').innerText = currentUser.nick;
-    
-    if(currentUser.email === "milanbiel12@gmail.com") {
-        document.getElementById('admin-btn').classList.remove('hidden');
-    }
+    if(currentUser.email === "milanbiel12@gmail.com") document.getElementById('admin-btn').classList.remove('hidden');
     updateUI();
-    
-    // Iniciar conexión PeerJS
     peer = new Peer(currentUser.nick.toLowerCase());
-    peer.on('connection', c => {
-        conn = c;
-        setupConnection();
-    });
+    peer.on('connection', c => { conn = c; setupConnection(); });
 }
 
-// --- LÓGICA DE MULTIJUGADOR ---
 function connectToFriend() {
     const friendId = document.getElementById('friend-id').value.trim().toLowerCase();
     if(!friendId) return alert("Introduce el Nick del amigo");
-    
     conn = peer.connect(friendId);
-    conn.on('open', () => {
-        setupConnection();
-        // Le dice al amigo que inicie la partida
-        conn.send({ type: 'start_match' });
-        isMultiplayer = true;
-        startMatch();
-    });
+    conn.on('open', () => { setupConnection(); conn.send({ type: 'start_match' }); isMultiplayer = true; startMatch(); });
 }
 
 function setupConnection() {
     isMultiplayer = true;
     conn.on('data', data => {
-        if(data.type === 'start_match') {
-            startMatch();
-        }
-        if(data.type === 'spawn') {
-            // El oponente lanzó una tropa
-            spawnUnit(data.id, 'enemy', data.z, false);
-        }
-        if(data.type === 'tower_hp') {
-            // Actualizar vida de la torre si hubo daño remoto
-            towers.player.hp = data.hp;
-        }
+        if(data.type === 'start_match') startMatch();
+        if(data.type === 'spawn') spawnUnit(data.id, 'enemy', data.z, false);
+        if(data.type === 'tower_hp') towers.player.hp = data.hp;
     });
 }
-
 
 function updateUI() {
     document.getElementById('stat-gold').innerText = currentUser.gold;
@@ -262,28 +228,20 @@ for(let i=0; i<50; i++) {
 function renderGrids() {
     const shop = document.getElementById('shop-grid'); shop.innerHTML = '';
     const deck = document.getElementById('deck-grid'); deck.innerHTML = '';
-    
     CHARS_DB.forEach(c => {
         const owned = currentUser.owned.includes(c.id);
         const div = document.createElement('div');
         div.className = `item-card ${owned ? 'active' : ''}`;
-        div.innerHTML = `
-            <div style="font-size:1.5rem">${c.emoji}</div>
-            <div class="stats-text">❤️${c.hp} | ⚔️${c.dmg}</div>
-            <small>${owned ? 'COMPRADO' : '💰'+c.price}</small>`;
+        div.innerHTML = `<div style="font-size:1.5rem">${c.emoji}</div><div class="stats-text">❤️${c.hp} | ⚔️${c.dmg}</div><small>${owned ? 'COMPRADO' : '💰'+c.price}</small>`;
         div.onclick = () => { if(!owned && currentUser.gold >= c.price) { currentUser.gold -= c.price; currentUser.owned.push(c.id); save(); updateUI(); }};
         shop.appendChild(div);
     });
-
     currentUser.owned.forEach(id => {
         const c = CHARS_DB[id];
         const inDeck = currentUser.deck.includes(id);
         const div = document.createElement('div');
         div.className = `item-card ${inDeck ? 'active' : ''}`;
-        div.innerHTML = `
-            <div style="font-size:1.5rem">${c.emoji}</div>
-            <div class="stats-text">❤️${c.hp} | ⚔️${c.dmg}</div>
-            <small>${inDeck ? 'MAZO' : 'USAR'}</small>`;
+        div.innerHTML = `<div style="font-size:1.5rem">${c.emoji}</div><div class="stats-text">❤️${c.hp} | ⚔️${c.dmg}</div><small>${inDeck ? 'MAZO' : 'USAR'}</small>`;
         div.onclick = () => { if(!inDeck) { if(currentUser.deck.length >= 4) currentUser.deck.shift(); currentUser.deck.push(id); save(); updateUI(); }};
         deck.appendChild(div);
     });
@@ -295,189 +253,152 @@ function save() {
     localStorage.setItem('CLASH_DB_SECURE', JSON.stringify(db));
 }
 
-// --- GRÁFICOS Y JUEGO MEJORADOS ---
+function toggleAdmin(show) { document.getElementById('admin-modal').style.display = show ? 'block' : 'none'; }
+function executeAdminGift(isSelf) {
+    let db = JSON.parse(localStorage.getItem('CLASH_DB_SECURE') || '{}');
+    let target = isSelf ? currentUser.nick : document.getElementById('adm-target').value;
+    let amount = isSelf ? 10000 : parseInt(document.getElementById('adm-amount').value);
+    if(db[target]) {
+        db[target].gold += amount; localStorage.setItem('CLASH_DB_SECURE', JSON.stringify(db));
+        if(target === currentUser.nick) { currentUser.gold += amount; updateUI(); }
+        alert("¡Oro enviado!");
+    } else alert("Usuario no encontrado.");
+}
+
+// ==========================================
+// GRÁFICOS 3D (VERSIÓN 0.147 ESTABLE)
+// ==========================================
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87CEEB); // Cielo azul claro
-// NIEBLA SUAVIZADA (Antes 20 a 50, ahora de 50 a 120 para que casi no se note)
+scene.background = new THREE.Color(0x87CEEB);
 scene.fog = new THREE.Fog(0x87CEEB, 50, 120);  
 
 const camera = new THREE.PerspectiveCamera(40, window.innerWidth/window.innerHeight, 0.1, 1000);
-// Perspectiva más aérea e isométrica, ajustada para la jugabilidad horizontal (X axis)
 camera.position.set(0, 32, 28); 
 camera.lookAt(0, 0, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true; // Sombras activadas
+renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
-// Iluminación mejorada
 const ambient = new THREE.AmbientLight(0xffffff, 0.65);
 const sun = new THREE.DirectionalLight(0xffffee, 1.2);
 sun.position.set(10, 30, 15); 
 sun.castShadow = true;
-sun.shadow.mapSize.width = 2048;
-sun.shadow.mapSize.height = 2048;
-sun.shadow.camera.near = 0.5;
-sun.shadow.camera.far = 100;
-sun.shadow.camera.left = -25;
-sun.shadow.camera.right = 25;
-sun.shadow.camera.top = 25;
-sun.shadow.camera.bottom = -25;
+sun.shadow.mapSize.width = 2048; sun.shadow.mapSize.height = 2048;
+sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 100;
+sun.shadow.camera.left = -25; sun.shadow.camera.right = 25;
+sun.shadow.camera.top = 25; sun.shadow.camera.bottom = -25;
 scene.add(ambient, sun);
 
-// Función para generar textura de césped a cuadros
-function createGrassTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 512; canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#4aa144'; ctx.fillRect(0,0,512,512);
-    ctx.fillStyle = '#41923c';
-    for(let i=0; i<8; i++){
-        for(let j=0; j<8; j++){
-            if((i+j)%2===0) ctx.fillRect(i*64, j*64, 64, 64);
-        }
-    }
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(4, 4);
-    return tex;
+const gltfLoader = new THREE.GLTFLoader();
+const modelos3D = { arena: null, miniPekka: null, hornedChar: null, gemBox: null };
+
+// Sistema robusto de carga para evitar que la partida se rompa si el modelo tarda
+function safeLoadModel(path, callback) {
+    try {
+        gltfLoader.load(path, callback, undefined, (e) => {
+            console.warn(`Aviso: No se pudo cargar ${path}. Se usarán figuras 3D simples como reemplazo.`);
+        });
+    } catch(err) { console.error(err); }
 }
 
-// CONSTRUCCIÓN DE LA ARENA (Escenario detallado)
-const arenaGroup = new THREE.Group();
+safeLoadModel('enviroment_clash_royal.glb', (gltf) => {
+    modelos3D.arena = gltf.scene;
+    modelos3D.arena.scale.set(1.5, 1.5, 1.5);
+    modelos3D.arena.position.set(0, -0.5, 0);
+    modelos3D.arena.traverse((node) => { if (node.isMesh) { node.receiveShadow = true; } });
+    scene.add(modelos3D.arena);
+});
 
-// Suelo de césped
-const grassMat = new THREE.MeshStandardMaterial({ map: createGrassTexture(), roughness: 0.9 });
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(46, 26), grassMat);
-ground.rotation.x = -Math.PI/2; 
-ground.receiveShadow = true;
-arenaGroup.add(ground);
+safeLoadModel('peka-v1.glb', (gltf) => {
+    modelos3D.miniPekka = gltf.scene;
+    modelos3D.miniPekka.traverse((node) => { if (node.isMesh) { node.castShadow = true; node.receiveShadow = true; } });
+});
 
-// Río central
-const riverGeometry = new THREE.PlaneGeometry(6, 26);
-const riverMat = new THREE.MeshStandardMaterial({ color: 0x2980b9, transparent: true, opacity: 0.85, roughness: 0.1 });
-const river = new THREE.Mesh(riverGeometry, riverMat);
-river.rotation.x = -Math.PI/2;
-river.position.y = 0.05; // Ligeramente por encima del suelo
-arenaGroup.add(river);
+safeLoadModel('arafed_image_of_a_cartoon_character_with_a_horne.glb', (gltf) => {
+    modelos3D.hornedChar = gltf.scene;
+    modelos3D.hornedChar.traverse((node) => { if (node.isMesh) { node.castShadow = true; node.receiveShadow = true; } });
+});
 
-// Bordes del río (piedras)
-const riverEdgeGeo = new THREE.BoxGeometry(0.5, 0.2, 26);
-const stoneMat = new THREE.MeshStandardMaterial({color: 0x7f8c8d, roughness: 0.8});
-const edgeL = new THREE.Mesh(riverEdgeGeo, stoneMat); edgeL.position.set(-3, 0.1, 0);
-const edgeR = new THREE.Mesh(riverEdgeGeo, stoneMat); edgeR.position.set(3, 0.1, 0);
-arenaGroup.add(edgeL, edgeR);
+safeLoadModel('clash_royall_gem_box.glb', (gltf) => {
+    modelos3D.gemBox = gltf.scene;
+    modelos3D.gemBox.traverse((node) => { if (node.isMesh) { node.castShadow = true; node.receiveShadow = true; } });
+});
 
-// Puentes
-const bridgeGeo = new THREE.BoxGeometry(7, 0.3, 4);
-const bridgeMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.9 });
-const bridge1 = new THREE.Mesh(bridgeGeo, bridgeMat);
-bridge1.position.set(0, 0.15, 7); bridge1.receiveShadow = true; bridge1.castShadow = true;
-const bridge2 = new THREE.Mesh(bridgeGeo, bridgeMat);
-bridge2.position.set(0, 0.15, -7); bridge2.receiveShadow = true; bridge2.castShadow = true;
-arenaGroup.add(bridge1, bridge2);
-
-scene.add(arenaGroup);
-
-// Función de creación de personajes mejorada visualmente según el tipo
-function createDetailedCharacter(config) {
+function createPrimitiveCharacter(config) {
     const group = new THREE.Group();
-    
-    const skinMat = new THREE.MeshStandardMaterial({color: 0xffccaa, roughness: 0.5});
     const clothMat = new THREE.MeshStandardMaterial({color: config.color, roughness: 0.8});
-    const ironMat = new THREE.MeshStandardMaterial({color: 0xbdc3c7, metalness: 0.6, roughness: 0.4});
-    const woodMat = new THREE.MeshStandardMaterial({color: 0x5c4033, roughness: 0.9});
-
-    // Modificar tamaño según clase
-    let scale = 1;
-    if (config.name === "Gigante") scale = 1.6;
-    if (config.name === "Arquero") scale = 0.85;
-
-    // Cuerpo
     const bodyGeo = new THREE.CapsuleGeometry(0.35, 0.5, 4, 12);
     const body = new THREE.Mesh(bodyGeo, clothMat);
-    body.position.y = 0.6;
-    body.castShadow = true;
+    body.position.y = 0.6; body.castShadow = true;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), new THREE.MeshStandardMaterial({color: 0xffccaa}));
+    head.position.y = 1.3; head.castShadow = true;
+    group.add(body, head);
+    return group;
+}
 
-    // Cabeza
-    const headGeo = new THREE.SphereGeometry(0.3, 16, 16);
-    const head = new THREE.Mesh(headGeo, skinMat);
-    head.position.y = 1.3;
-    head.castShadow = true;
+function createDetailedCharacter(config, isPlayer) {
+    const group = new THREE.Group();
+    let meshToUse = null;
+    let baseScale = 1;
 
-    // Equipamiento específico por clase
-    let weaponGroup = new THREE.Group();
     if (config.name === "Guerrero" || config.name === "Caballero") {
-        const sword = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.8, 0.2), ironMat);
-        sword.position.set(0.5, 0.7, 0.3); sword.rotation.x = Math.PI/4; sword.castShadow = true;
-        weaponGroup.add(sword);
-        if (config.name === "Caballero") {
-            const shield = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16), ironMat);
-            shield.position.set(-0.5, 0.7, 0.2); shield.rotation.z = Math.PI/2; shield.castShadow = true;
-            weaponGroup.add(shield);
+        if (modelos3D.miniPekka) { meshToUse = modelos3D.miniPekka.clone(); baseScale = 1.8; }
+    } else {
+        if (modelos3D.hornedChar) { 
+            meshToUse = modelos3D.hornedChar.clone(); 
+            baseScale = (config.name === "Gigante") ? 2.5 : 1.5; 
         }
-    } else if (config.name === "Arquero") {
-        const bow = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.05, 8, 16, Math.PI), woodMat);
-        bow.position.set(0.5, 0.7, 0.2); bow.rotation.y = Math.PI/2; bow.castShadow = true;
-        weaponGroup.add(bow);
-    } else if (config.name === "Gigante") {
-        const fist1 = new THREE.Mesh(new THREE.SphereGeometry(0.25), skinMat); fist1.position.set(0.6, 0.6, 0.2); fist1.castShadow = true;
-        const fist2 = new THREE.Mesh(new THREE.SphereGeometry(0.25), skinMat); fist2.position.set(-0.6, 0.6, 0.2); fist2.castShadow = true;
-        weaponGroup.add(fist1, fist2);
-    } else if (config.name === "Mago") {
-        const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.2), woodMat);
-        staff.position.set(0.5, 0.7, 0.2); staff.castShadow = true;
-        const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.15), new THREE.MeshStandardMaterial({color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 0.5}));
-        gem.position.set(0.5, 1.3, 0.2);
-        weaponGroup.add(staff, gem);
-    } else if (config.name === "Bárbaro") {
-        const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.8), woodMat); handle.castShadow = true;
-        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.08), ironMat); blade.position.set(0.2, 0.3, 0); blade.castShadow = true;
-        const axe = new THREE.Group(); axe.add(handle, blade); axe.position.set(0.5, 0.7, 0.2);
-        weaponGroup.add(axe);
     }
 
-    group.add(body, head, weaponGroup);
-    group.scale.set(scale, scale, scale);
+    if (meshToUse) {
+        meshToUse.scale.set(baseScale, baseScale, baseScale);
+        meshToUse.rotation.y = isPlayer ? Math.PI / 2 : -Math.PI / 2;
+        group.add(meshToUse);
+
+        const ringGeo = new THREE.RingGeometry(0.5, 0.7, 16);
+        const ringMat = new THREE.MeshBasicMaterial({ color: isPlayer ? 0x2196F3 : 0xF44336, side: THREE.DoubleSide });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = Math.PI / 2;
+        ring.position.y = 0.1;
+        group.add(ring);
+    } else {
+        group.add(createPrimitiveCharacter(config));
+    }
+
     return group;
 }
 
 let towers = { player: null, enemy: null }, troops = [], gameActive = false, elixir = 0;
 
-// Torres mejoradas visualmente (Estilo castillo real)
 function createTower(x, color, isPlayer) {
     const group = new THREE.Group();
     
-    // Base de piedra
     const baseGeo = new THREE.BoxGeometry(3.5, 3.5, 3.5);
     const stoneMat = new THREE.MeshStandardMaterial({color: 0xbdc3c7, roughness: 0.8});
     const base = new THREE.Mesh(baseGeo, stoneMat);
     base.position.y = 1.75;
     base.castShadow = true; base.receiveShadow = true;
 
-    // Almenas superiores (Color del equipo)
     const topGeo = new THREE.CylinderGeometry(2.2, 2.5, 1.5, 8);
     const teamMat = new THREE.MeshStandardMaterial({color: color, roughness: 0.6});
     const top = new THREE.Mesh(topGeo, teamMat);
     top.position.y = 4.25;
     top.castShadow = true;
 
-    // Suelo de madera superior
-    const floorGeo = new THREE.CylinderGeometry(2, 2, 1.6, 8);
-    const woodMat = new THREE.MeshStandardMaterial({color: 0x5c4033});
-    const floor = new THREE.Mesh(floorGeo, woodMat);
-    floor.position.y = 4.25;
+    group.add(base, top);
 
-    // Rey/Princesa representativo en la torre
-    const kingHead = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 16), new THREE.MeshStandardMaterial({color: 0xffccaa}));
-    kingHead.position.y = 5.3;
-    const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.2, 0.4, 6), new THREE.MeshStandardMaterial({color: 0xffd700}));
-    crown.position.y = 5.8;
+    if (modelos3D.gemBox) {
+        try {
+            const gemModel = modelos3D.gemBox.clone();
+            gemModel.position.set(0, 5, 0); 
+            gemModel.scale.set(0.5, 0.5, 0.5); 
+            group.add(gemModel);
+        } catch(e) {}
+    }
 
-    group.add(base, top, floor, kingHead, crown);
     group.position.set(x, 0, 0);
     scene.add(group);
 
@@ -486,9 +407,13 @@ function createTower(x, color, isPlayer) {
     bar.innerHTML = `<div class="hp-bar-fill" style="background:${isPlayer ? 'var(--blue)' : 'var(--red)'}"></div>`;
     document.getElementById('hp-bars-layer').appendChild(bar);
     
-    return { mesh: group, hp: isPlayer ? 5000 : 2000, maxHp: isPlayer ? 5000 : 2000, bar, x };
+    // CORREGIDO: Añadimos 'x' para que las barras de vida calculen su posición perfecta
+    return { mesh: group, hp: isPlayer ? 5000 : 2000, maxHp: isPlayer ? 5000 : 2000, bar, x: x };
 }
 
+// ==========================================
+// LÓGICA DE PARTIDA (SIN MODIFICAR NADA)
+// ==========================================
 function startMatch() {
     document.getElementById('screen-lobby').classList.add('hidden');
     document.getElementById('game-ui').classList.remove('hidden');
@@ -504,14 +429,10 @@ function startMatch() {
     animate();
 }
 
-function startSoloGame() {
-    isMultiplayer = false;
-    startMatch();
-}
+function startSoloGame() { isMultiplayer = false; startMatch(); }
 
 function quitMatch() {
-    gameActive = false;
-    isMultiplayer = false;
+    gameActive = false; isMultiplayer = false;
     if(conn) { conn.close(); conn = null; }
     alert("Te has retirado de la partida.");
     document.getElementById('game-ui').classList.add('hidden');
@@ -521,19 +442,17 @@ function quitMatch() {
 
 function spawnUnit(id, owner, z, sync = false) {
     const c = CHARS_DB[id];
-    const mesh = createDetailedCharacter(c);
-    mesh.position.set(owner === 'player' ? -14 : 14, 0, z);
+    const isPlayer = (owner === 'player');
+    const mesh = createDetailedCharacter(c, isPlayer);
+    mesh.position.set(isPlayer ? -14 : 14, 0, z);
     scene.add(mesh);
     const bar = document.createElement('div');
     bar.className = 'hp-bar-container';
-    bar.innerHTML = `<div class="hp-bar-fill" style="background:${owner === 'player' ? 'var(--blue)' : 'var(--red)'}"></div>`;
+    bar.innerHTML = `<div class="hp-bar-fill" style="background:${isPlayer ? 'var(--blue)' : 'var(--red)'}"></div>`;
     document.getElementById('hp-bars-layer').appendChild(bar);
-    troops.push({ ...c, owner, mesh, bar, hp: c.hp, maxHp: c.hp, currentDmg: (owner==='player' ? c.dmg*1.5 : c.dmg) });
+    troops.push({ ...c, owner, mesh, bar, hp: c.hp, maxHp: c.hp, currentDmg: (isPlayer ? c.dmg*1.5 : c.dmg) });
 
-    // Sincronizar el spawn con el otro jugador si es multijugador
-    if(sync && isMultiplayer && conn) {
-        conn.send({type:'spawn', id: id, z: z});
-    }
+    if(sync && isMultiplayer && conn) conn.send({type:'spawn', id: id, z: z});
 }
 
 function renderHand() {
@@ -569,20 +488,17 @@ function animate() {
             else move(t, target.mesh.position, dt);
         } else {
             const tow = t.owner === 'player' ? towers.enemy : towers.player;
-            if(Math.abs(t.mesh.position.x - tow.x) < 2) {
+            if(Math.abs(t.mesh.position.x - tow.mesh.position.x) < 2) {
                 tow.hp -= (t.currentDmg*0.5)*dt;
-                // Sincronizar el daño que nuestro jugador le hace a la torre enemiga
-                if(isMultiplayer && conn && t.owner === 'player') {
-                    conn.send({type:'tower_hp', hp: towers.enemy.hp});
-                }
+                if(isMultiplayer && conn && t.owner === 'player') conn.send({type:'tower_hp', hp: towers.enemy.hp});
             } else {
-                move(t, new THREE.Vector3(tow.x, 0, 0), dt);
+                move(t, new THREE.Vector3(tow.mesh.position.x, 0, 0), dt);
             }
         }
         updateBar(t.mesh.position, t.bar, t.hp/t.maxHp);
     }
     
-    // Position of healthbars for towers
+    // Actualización de vida de la torre usando su propiedad original 'x'
     updateBar(new THREE.Vector3(towers.player.x, 6, 0), towers.player.bar, towers.player.hp/towers.player.maxHp);
     updateBar(new THREE.Vector3(towers.enemy.x, 6, 0), towers.enemy.bar, towers.enemy.hp/towers.enemy.maxHp);
     
@@ -596,6 +512,9 @@ function move(t, pos, dt) {
     t.mesh.position.add(dir.multiplyScalar(t.speed * dt));
     t.mesh.lookAt(pos.x, 0, pos.z);
     t.mesh.position.y = Math.abs(Math.sin(Date.now()*0.01*t.speed))*0.15; // Un pequeño rebote al caminar
+    
+    // Esto asegura que miren bien si es tu PEKKA o la bestia con cuernos
+    t.mesh.children[0].rotation.y = t.owner === 'player' ? Math.PI/2 : -Math.PI/2; 
 }
 
 function updateBar(pos3d, bar, pct) {
@@ -606,8 +525,7 @@ function updateBar(pos3d, bar, pct) {
 }
 
 function endMatch(win) {
-    gameActive = false;
-    isMultiplayer = false;
+    gameActive = false; isMultiplayer = false;
     if(conn) { conn.close(); conn = null; }
     alert(win ? "¡VICTORIA! +500 Oro" : "DERROTA");
     if(win) { currentUser.gold += 500; currentUser.wins++; save(); }

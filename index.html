@@ -46,9 +46,10 @@
         
         .stat-bar { background: #000; padding: 10px 20px; border-radius: 30px; border: 2px solid #333; display: flex; justify-content: space-between; margin-bottom: 20px; }
         
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 10px; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 15px; overflow-y: auto; }
-        .item-card { background: #222; padding: 10px; border-radius: 10px; text-align: center; cursor: pointer; border: 2px solid transparent; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 15px; overflow-y: auto; }
+        .item-card { background: #222; padding: 10px; border-radius: 10px; text-align: center; cursor: pointer; border: 2px solid transparent; display: flex; flex-direction: column; gap: 5px; }
         .item-card.active { border-color: var(--gold); background: #332a00; }
+        .stats-text { font-size: 0.75rem; color: #ddd; background: #111; padding: 2px; border-radius: 5px; }
 
         /* ADMIN MODAL */
         #admin-modal { 
@@ -70,6 +71,9 @@
         #elixir-fill { height: 100%; width: 0%; background: var(--elixir); }
         #hand { display: flex; gap: 10px; margin-top: 10px; }
         .card { width: 75px; height: 100px; background: white; border-radius: 8px; color: black; border: 3px solid #444; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; }
+        
+        #quit-btn { position: absolute; top: 20px; right: 20px; padding: 10px 20px; background: var(--red); color: white; border: 2px solid white; border-radius: 10px; font-weight: bold; cursor: pointer; pointer-events: auto; z-index: 100; box-shadow: 0 4px 0 #800; }
+        #quit-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #800; }
     </style>
 </head>
 <body>
@@ -95,7 +99,7 @@
             
             <div style="flex:1"></div>
             <button id="admin-btn" class="btn btn-red hidden" onclick="toggleAdmin(true)">⚙️ ADMIN PANEL</button>
-            <button class="btn btn-red" onclick="location.reload()">SALIR</button>
+            <button class="btn btn-red" onclick="logout()">SALIR</button>
         </div>
 
         <div class="main-content">
@@ -128,6 +132,7 @@
     </div>
 
     <div id="game-ui" class="hidden">
+        <button id="quit-btn" onclick="quitMatch()">SALIR DE PARTIDA</button>
         <div id="hp-bars-layer"></div>
         <div id="hud-bottom">
             <div id="elixir-wrapper">
@@ -141,7 +146,18 @@
 <script>
 let currentUser = null;
 
-// --- SISTEMA DE CUENTAS ---
+// --- SISTEMA DE CUENTAS (AUTO-LOGIN) ---
+window.onload = () => {
+    const activeUser = localStorage.getItem('CLASH_ACTIVE_SESSION');
+    if(activeUser) {
+        let db = JSON.parse(localStorage.getItem('CLASH_DB_SECURE') || '{}');
+        if(db[activeUser]) {
+            currentUser = db[activeUser];
+            enterLobby();
+        }
+    }
+};
+
 function handleAuth(mode) {
     const email = document.getElementById('auth-email').value.trim().toLowerCase();
     const nick = document.getElementById('auth-nick').value.trim();
@@ -160,11 +176,17 @@ function handleAuth(mode) {
         const user = db[nick];
         if(user && user.pass === pass && user.email === email) {
             currentUser = user;
+            localStorage.setItem('CLASH_ACTIVE_SESSION', currentUser.nick);
             enterLobby();
         } else {
             alert("Datos incorrectos. Verifica tu Nickname y Email.");
         }
     }
+}
+
+function logout() {
+    localStorage.removeItem('CLASH_ACTIVE_SESSION');
+    location.reload();
 }
 
 function enterLobby() {
@@ -205,7 +227,10 @@ function renderGrids() {
         const owned = currentUser.owned.includes(c.id);
         const div = document.createElement('div');
         div.className = `item-card ${owned ? 'active' : ''}`;
-        div.innerHTML = `<div>${c.emoji}</div><small>${owned ? 'COMPRADO' : '💰'+c.price}</small>`;
+        div.innerHTML = `
+            <div style="font-size:1.5rem">${c.emoji}</div>
+            <div class="stats-text">❤️${c.hp} | ⚔️${c.dmg}</div>
+            <small>${owned ? 'COMPRADO' : '💰'+c.price}</small>`;
         div.onclick = () => { if(!owned && currentUser.gold >= c.price) { currentUser.gold -= c.price; currentUser.owned.push(c.id); save(); updateUI(); }};
         shop.appendChild(div);
     });
@@ -215,7 +240,10 @@ function renderGrids() {
         const inDeck = currentUser.deck.includes(id);
         const div = document.createElement('div');
         div.className = `item-card ${inDeck ? 'active' : ''}`;
-        div.innerHTML = `<div>${c.emoji}</div><small>${inDeck ? 'MAZO' : 'USAR'}</small>`;
+        div.innerHTML = `
+            <div style="font-size:1.5rem">${c.emoji}</div>
+            <div class="stats-text">❤️${c.hp} | ⚔️${c.dmg}</div>
+            <small>${inDeck ? 'MAZO' : 'USAR'}</small>`;
         div.onclick = () => { if(!inDeck) { if(currentUser.deck.length >= 4) currentUser.deck.shift(); currentUser.deck.push(id); save(); updateUI(); }};
         deck.appendChild(div);
     });
@@ -241,7 +269,7 @@ function executeAdminGift(isSelf) {
     } else alert("Usuario no encontrado.");
 }
 
-// --- GRÁFICOS Y JUEGO (MANTENIENDO TU ORIGINAL) ---
+// --- GRÁFICOS Y JUEGO ---
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x3d7a35);
 const camera = new THREE.PerspectiveCamera(40, window.innerWidth/window.innerHeight, 0.1, 1000);
@@ -301,6 +329,14 @@ function startSoloGame() {
     towers.enemy = createTower(16, 0xF44336, false);
     gameActive = true; elixir = 5;
     renderHand(); animate();
+}
+
+function quitMatch() {
+    gameActive = false;
+    alert("Te has retirado de la partida.");
+    document.getElementById('game-ui').classList.add('hidden');
+    document.getElementById('screen-lobby').classList.remove('hidden');
+    updateUI();
 }
 
 function spawnUnit(id, owner, z) {

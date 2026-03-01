@@ -4,101 +4,84 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mini Clash 3D - Ultimate Edition</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-            }
-        }
-    </script>
-
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
-        
-        :root { --gold: #FFD700; --elixir: #d400ff; --blue: #3a86ff; --red: #ff003c; --dark: #121212; }
-        body { margin: 0; overflow: hidden; font-family: 'Fredoka One', 'Verdana', sans-serif; background: #000; color: white; user-select: none; }
+        :root { --gold: #FFD700; --elixir: #ff00ff; --blue: #2196F3; --red: #F44336; --dark: #121212; }
+        body { margin: 0; overflow: hidden; font-family: 'Verdana', sans-serif; background: #000; color: white; user-select: none; }
 
         .screen {
             position: absolute; width: 100%; height: 100%;
-            background: radial-gradient(circle, #2c3e50, #0a1128);
+            background: radial-gradient(circle, #2c3e50, #000);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             z-index: 100; transition: 0.5s;
         }
         .hidden { display: none !important; }
 
         .panel {
-            background: linear-gradient(180deg, #1a2a40, #0d1624); padding: 35px; border-radius: 20px;
-            border: 4px solid var(--gold); text-align: center; width: 350px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.9), inset 0 0 15px rgba(255,215,0,0.2);
+            background: rgba(0,0,0,0.9); padding: 30px; border-radius: 25px;
+            border: 3px solid var(--gold); text-align: center; width: 350px;
+            box-shadow: 0 0 40px rgba(0,0,0,0.8);
         }
 
         input {
-            padding: 14px; width: 85%; border-radius: 8px; border: 2px solid #334;
-            margin: 10px 0; font-size: 1rem; text-align: center; background: #0b111e; color: white;
-            font-family: inherit;
+            padding: 12px; width: 85%; border-radius: 10px; border: 2px solid #444;
+            margin: 8px 0; font-size: 1rem; text-align: center; background: #222; color: white;
         }
         
         .btn {
             padding: 15px 25px; border-radius: 12px; border: none; cursor: pointer;
-            font-weight: bold; font-family: inherit; font-size: 1.1rem; text-transform: uppercase; 
-            margin: 8px 0; width: 100%; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-            transition: 0.1s; border-bottom: 5px solid rgba(0,0,0,0.3);
+            font-weight: bold; text-transform: uppercase; margin: 8px 0; width: 100%;
+            transition: 0.2s; box-shadow: 0 4px 0 rgba(0,0,0,0.4);
         }
-        .btn-green { background: linear-gradient(#4cd137, #44bd32); color: white; border-bottom-color: #359627; }
-        .btn-blue { background: linear-gradient(#00a8ff, #0097e6); color: white; border-bottom-color: #007bbd; }
-        .btn-red { background: linear-gradient(#e84118, #c23616); color: white; border-bottom-color: #9c2b12; }
-        .btn:active { transform: translateY(3px); border-bottom-width: 2px; }
+        .btn-green { background: linear-gradient(#2ecc71, #27ae60); color: white; }
+        .btn-blue { background: linear-gradient(#3498db, #2980b9); color: white; }
+        .btn-red { background: linear-gradient(#e74c3c, #c0392b); color: white; }
+        .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,0.4); }
 
         /* LOBBY LAYOUT */
-        #screen-lobby { background: linear-gradient(135deg, #101c2b 0%, #050a12 100%); flex-direction: row; align-items: stretch; }
-        .sidebar { width: 280px; background: rgba(0,0,0,0.7); border-right: 3px solid var(--gold); padding: 25px; display: flex; flex-direction: column; }
-        .main-content { flex: 1; padding: 25px; display: flex; flex-direction: column; }
+        #screen-lobby { background: linear-gradient(135deg, #1a2a3a 0%, #000 100%); flex-direction: row; align-items: stretch; }
+        .sidebar { width: 280px; background: rgba(0,0,0,0.6); border-right: 2px solid var(--gold); padding: 20px; display: flex; flex-direction: column; }
+        .main-content { flex: 1; padding: 20px; display: flex; flex-direction: column; }
         
-        .stat-bar { background: linear-gradient(90deg, #111, #222); padding: 12px 25px; border-radius: 30px; border: 2px solid #555; display: flex; justify-content: space-between; margin-bottom: 25px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
-        .stat-bar span { font-size: 1.2rem; display: flex; align-items: center; gap: 8px; }
+        .stat-bar { background: #000; padding: 10px 20px; border-radius: 30px; border: 2px solid #333; display: flex; justify-content: space-between; margin-bottom: 20px; }
         
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; background: rgba(255,255,255,0.03); padding: 20px; border-radius: 15px; overflow-y: auto; border: 1px solid #333; }
-        .item-card { background: linear-gradient(180deg, #333, #1a1a1a); padding: 12px; border-radius: 12px; text-align: center; cursor: pointer; border: 3px solid #444; display: flex; flex-direction: column; gap: 8px; transition: 0.2s; }
-        .item-card:hover { transform: scale(1.05); border-color: #666; }
-        .item-card.active { border-color: var(--gold); background: linear-gradient(180deg, #4d3f00, #261f00); box-shadow: 0 0 15px rgba(255,215,0,0.3); }
-        .stats-text { font-size: 0.8rem; color: #ddd; background: rgba(0,0,0,0.6); padding: 4px; border-radius: 5px; font-family: sans-serif; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 15px; overflow-y: auto; }
+        .item-card { background: #222; padding: 10px; border-radius: 10px; text-align: center; cursor: pointer; border: 2px solid transparent; display: flex; flex-direction: column; gap: 5px; }
+        .item-card.active { border-color: var(--gold); background: #332a00; }
+        .stats-text { font-size: 0.75rem; color: #ddd; background: #111; padding: 2px; border-radius: 5px; }
 
         /* ADMIN MODAL */
         #admin-modal { 
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: #300000; padding: 35px; border: 4px solid var(--gold); 
-            border-radius: 20px; z-index: 9999; display: none; width: 320px;
-            box-shadow: 0 0 100px rgba(0,0,0,0.9);
+            background: #400; padding: 30px; border: 4px solid var(--gold); 
+            border-radius: 20px; z-index: 500; display: none; width: 300px;
+            box-shadow: 0 0 100px #000;
         }
 
         /* JUEGO UI */
         #game-ui { position: absolute; width: 100%; height: 100%; pointer-events: none; z-index: 50; }
+        .hp-bar-container { position: absolute; width: 50px; height: 6px; background: rgba(0,0,0,0.5); border: 1px solid #fff; border-radius: 3px; transform: translate(-50%, -50%); }
+        .hp-bar-fill { height: 100%; width: 100%; transition: width 0.2s; }
         
-        .hp-bar-container { position: absolute; width: 60px; height: 10px; background: #111; border: 2px solid #000; border-radius: 5px; transform: translate(-50%, -50%); overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
-        .hp-bar-fill { height: 100%; width: 100%; transition: width 0.1s; }
+        #hud-bottom { position: absolute; bottom: 0; width: 100%; height: 160px; background: linear-gradient(transparent, rgba(0,0,0,0.9)); display: flex; flex-direction: column; align-items: center; pointer-events: auto; }
+        #elixir-wrapper { display: flex; align-items: center; gap: 10px; margin-top: 5px; }
+        #elixir-num { font-size: 1.5rem; font-weight: bold; color: var(--elixir); }
+        #elixir-container { width: 300px; height: 16px; background: #111; border: 2px solid #fff; border-radius: 10px; overflow: hidden; }
+        #elixir-fill { height: 100%; width: 0%; background: var(--elixir); }
+        #hand { display: flex; gap: 10px; margin-top: 10px; }
+        .card { width: 75px; height: 100px; background: white; border-radius: 8px; color: black; border: 3px solid #444; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; }
         
-        #hud-bottom { position: absolute; bottom: 0; width: 100%; height: 180px; background: linear-gradient(transparent, rgba(0,0,0,0.95)); display: flex; flex-direction: column; align-items: center; pointer-events: auto; }
-        #elixir-wrapper { display: flex; align-items: center; gap: 15px; margin-top: 15px; }
-        #elixir-num { font-size: 2rem; color: var(--elixir); text-shadow: 0 0 10px var(--elixir); }
-        #elixir-container { width: 350px; height: 22px; background: #111; border: 3px solid #000; border-radius: 12px; overflow: hidden; position: relative; }
-        #elixir-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #a200ff, #f200ff); box-shadow: 0 0 10px rgba(242,0,255,0.5); }
-        
-        #hand { display: flex; gap: 15px; margin-top: 15px; }
-        .card { width: 85px; height: 115px; background: linear-gradient(180deg, #fff, #ddd); border-radius: 8px; color: black; border: 4px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: 0.1s; }
-        .card:active { transform: scale(0.95); }
-        
-        #quit-btn { position: absolute; top: 20px; right: 20px; padding: 12px 25px; background: var(--red); color: white; border: 3px solid #000; border-radius: 10px; cursor: pointer; pointer-events: auto; z-index: 100; font-family: inherit; font-size: 1rem; }
+        #quit-btn { position: absolute; top: 20px; right: 20px; padding: 10px 20px; background: var(--red); color: white; border: 2px solid white; border-radius: 10px; font-weight: bold; cursor: pointer; pointer-events: auto; z-index: 100; box-shadow: 0 4px 0 #800; }
+        #quit-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #800; }
     </style>
 </head>
 <body>
 
     <div id="screen-login" class="screen">
         <div class="panel">
-            <h1 style="margin:0; font-size:2.2rem">MINI CLASH <span style="color:var(--gold)">3D</span></h1>
-            <p style="font-size: 0.9rem; color: #aaa; font-family: sans-serif;">Inicia sesión o regístrate</p>
+            <h1 style="margin:0">MINI CLASH <span style="color:var(--gold)">3D</span></h1>
+            <p style="font-size: 0.8rem; color: #aaa;">Inicia sesión o regístrate</p>
             <input type="email" id="auth-email" placeholder="Correo Electrónico">
             <input type="text" id="auth-nick" placeholder="Nickname">
             <input type="password" id="auth-pass" placeholder="Contraseña">
@@ -109,9 +92,9 @@
 
     <div id="screen-lobby" class="screen hidden">
         <div class="sidebar">
-            <h2 style="color:var(--gold); text-align: center; font-size: 2rem; text-shadow: 0 2px 5px #000;">MENÚ</h2>
+            <h2 style="color:var(--gold); text-align: center;">MENÚ</h2>
             <button class="btn btn-green" onclick="startSoloGame()">⚔️ JUGAR (IA)</button>
-            <input type="text" id="friend-id" placeholder="ID de amigo...">
+            <input type="text" id="friend-id" placeholder="Nick de amigo...">
             <button class="btn btn-blue" onclick="connectToFriend()">🤝 INVITAR</button>
             
             <div style="flex:1"></div>
@@ -121,17 +104,17 @@
 
         <div class="main-content">
             <div class="stat-bar">
-                <span>💰 <b id="stat-gold" style="color:var(--gold)">0</b></span>
+                <span>💰 <b id="stat-gold">0</b></span>
                 <span>👤 <b id="display-user">?</b></span>
-                <span>🏆 <b id="stat-wins" style="color:#00a8ff">0</b></span>
+                <span>🏆 <b id="stat-wins">0</b></span>
             </div>
             <div style="flex:1; display:flex; gap:20px; overflow:hidden;">
                 <div style="flex:1; display:flex; flex-direction:column;">
-                    <h3 style="margin-bottom:10px;">🛒 TIENDA</h3>
+                    <h3>🛒 TIENDA</h3>
                     <div id="shop-grid" class="grid"></div>
                 </div>
                 <div style="flex:1; display:flex; flex-direction:column;">
-                    <h3 style="margin-bottom:10px;">🎴 TU MAZO</h3>
+                    <h3>🎴 TU MAZO</h3>
                     <div id="deck-grid" class="grid"></div>
                 </div>
             </div>
@@ -139,17 +122,17 @@
     </div>
 
     <div id="admin-modal">
-        <h2 style="margin:0 0 15px 0; color:var(--gold)">ADMIN TOOLS</h2>
+        <h2 style="margin:0; color:var(--gold)">ADMIN TOOLS</h2>
         <button class="btn btn-green" onclick="executeAdminGift(true)">DARME +10.000 ORO</button>
         <hr style="border:1px solid #600; margin:15px 0;">
-        <input type="text" id="adm-target" placeholder="Nick del jugador">
+        <input type="text" id="adm-target" placeholder="Nick del otro jugador">
         <input type="number" id="adm-amount" placeholder="Cantidad">
         <button class="btn btn-blue" onclick="executeAdminGift(false)">OTORGAR ORO</button>
         <button class="btn btn-red" onclick="toggleAdmin(false)">CERRAR</button>
     </div>
 
     <div id="game-ui" class="hidden">
-        <button id="quit-btn" onclick="quitMatch()">SALIR</button>
+        <button id="quit-btn" onclick="quitMatch()">SALIR DE PARTIDA</button>
         <div id="hp-bars-layer"></div>
         <div id="hud-bottom">
             <div id="elixir-wrapper">
@@ -160,21 +143,29 @@
         </div>
     </div>
 
-<script type="module">
-// LÓGICA DEL JUEGO + GRÁFICOS MEJORADOS (THREE.JS MÓDULOS)
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-
+<script>
 let currentUser = null;
 let peer = null, conn = null, isMultiplayer = false;
 
-// Exponemos las funciones al entorno global para que los botones HTML funcionen
-window.handleAuth = function(mode) {
+// --- SISTEMA DE CUENTAS (AUTO-LOGIN) ---
+window.onload = () => {
+    const activeUser = localStorage.getItem('CLASH_ACTIVE_SESSION');
+    if(activeUser) {
+        let db = JSON.parse(localStorage.getItem('CLASH_DB_SECURE') || '{}');
+        if(db[activeUser]) {
+            currentUser = db[activeUser];
+            enterLobby();
+        }
+    }
+};
+
+function handleAuth(mode) {
     const email = document.getElementById('auth-email').value.trim().toLowerCase();
     const nick = document.getElementById('auth-nick').value.trim();
     const pass = document.getElementById('auth-pass').value;
 
     if(!email || !pass || (mode==='register' && !nick)) return alert("Faltan datos");
+
     let db = JSON.parse(localStorage.getItem('CLASH_DB_SECURE') || '{}');
 
     if(mode === 'register') {
@@ -188,93 +179,67 @@ window.handleAuth = function(mode) {
             currentUser = user;
             localStorage.setItem('CLASH_ACTIVE_SESSION', currentUser.nick);
             enterLobby();
-        } else alert("Datos incorrectos.");
+        } else {
+            alert("Datos incorrectos. Verifica tu Nickname y Email.");
+        }
     }
-};
+}
 
-window.logout = function() {
+function logout() {
     localStorage.removeItem('CLASH_ACTIVE_SESSION');
     location.reload();
-};
-
-window.startSoloGame = function() {
-    isMultiplayer = false;
-    startMatch();
-};
-
-window.connectToFriend = function() {
-    const friendId = document.getElementById('friend-id').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-    if(!friendId) return alert("Introduce el ID del amigo");
-    conn = peer.connect(friendId);
-    conn.on('open', () => {
-        setupConnection();
-        conn.send({ type: 'start_match' });
-        isMultiplayer = true;
-        startMatch();
-    });
-};
-
-window.toggleAdmin = function(show) { 
-    const modal = document.getElementById('admin-modal');
-    if(show) { modal.style.setProperty('display', 'block', 'important'); modal.style.zIndex = '9999'; } 
-    else modal.style.setProperty('display', 'none', 'important');
-};
-
-window.executeAdminGift = function(isSelf) {
-    let db = JSON.parse(localStorage.getItem('CLASH_DB_SECURE') || '{}');
-    let targetNick = isSelf ? currentUser.nick : document.getElementById('adm-target').value.trim();
-    let amount = isSelf ? 10000 : parseInt(document.getElementById('adm-amount').value);
-    
-    if(!amount || amount <= 0) return alert("Cantidad inválida");
-    let foundUser = null;
-    for(let key in db) { if(key.toLowerCase() === targetNick.toLowerCase()) { foundUser = key; break; } }
-
-    if(foundUser) {
-        db[foundUser].gold += amount;
-        localStorage.setItem('CLASH_DB_SECURE', JSON.stringify(db));
-        if(foundUser === currentUser.nick) { currentUser.gold += amount; updateUI(); }
-        alert("¡Oro enviado con éxito!");
-        window.toggleAdmin(false);
-    } else alert("Usuario no encontrado.");
-};
-
-window.quitMatch = function() {
-    gameActive = false; isMultiplayer = false;
-    if(conn) { conn.close(); conn = null; }
-    document.getElementById('game-ui').classList.add('hidden');
-    document.getElementById('screen-lobby').classList.remove('hidden');
-    updateUI();
-};
-
-// AUTO-LOGIN
-const activeUser = localStorage.getItem('CLASH_ACTIVE_SESSION');
-if(activeUser) {
-    let db = JSON.parse(localStorage.getItem('CLASH_DB_SECURE') || '{}');
-    if(db[activeUser]) { currentUser = db[activeUser]; enterLobby(); }
 }
 
 function enterLobby() {
     document.getElementById('screen-login').classList.add('hidden');
     document.getElementById('screen-lobby').classList.remove('hidden');
-    const myPeerId = currentUser.nick.toLowerCase().replace(/[^a-z0-9]/g, '');
-    document.getElementById('display-user').innerText = currentUser.nick + " (Tu ID: " + myPeerId + ")";
+    document.getElementById('display-user').innerText = currentUser.nick;
     
-    if(currentUser.email === "milanbiel12@gmail.com" || currentUser.nick.toLowerCase() === "admin") {
+    if(currentUser.email === "milanbiel12@gmail.com") {
         document.getElementById('admin-btn').classList.remove('hidden');
     }
     updateUI();
-    peer = new Peer(myPeerId);
-    peer.on('connection', c => { conn = c; setupConnection(); });
+    
+    // Iniciar conexión PeerJS
+    peer = new Peer(currentUser.nick.toLowerCase());
+    peer.on('connection', c => {
+        conn = c;
+        setupConnection();
+    });
+}
+
+// --- LÓGICA DE MULTIJUGADOR ---
+function connectToFriend() {
+    const friendId = document.getElementById('friend-id').value.trim().toLowerCase();
+    if(!friendId) return alert("Introduce el Nick del amigo");
+    
+    conn = peer.connect(friendId);
+    conn.on('open', () => {
+        setupConnection();
+        // Le dice al amigo que inicie la partida
+        conn.send({ type: 'start_match' });
+        isMultiplayer = true;
+        startMatch();
+    });
 }
 
 function setupConnection() {
     isMultiplayer = true;
     conn.on('data', data => {
-        if(data.type === 'start_match') startMatch();
-        if(data.type === 'spawn') spawnUnit(data.id, 'enemy', data.z, false);
-        if(data.type === 'tower_hp') towers.player.hp = data.hp;
+        if(data.type === 'start_match') {
+            startMatch();
+        }
+        if(data.type === 'spawn') {
+            // El oponente lanzó una tropa
+            spawnUnit(data.id, 'enemy', data.z, false);
+        }
+        if(data.type === 'tower_hp') {
+            // Actualizar vida de la torre si hubo daño remoto
+            towers.player.hp = data.hp;
+        }
     });
 }
+
 
 function updateUI() {
     document.getElementById('stat-gold').innerText = currentUser.gold;
@@ -302,7 +267,10 @@ function renderGrids() {
         const owned = currentUser.owned.includes(c.id);
         const div = document.createElement('div');
         div.className = `item-card ${owned ? 'active' : ''}`;
-        div.innerHTML = `<div style="font-size:2rem">${c.emoji}</div><div class="stats-text">❤️${c.hp} | ⚔️${c.dmg}</div><strong style="color:var(--gold)">${owned ? 'TUYO' : '💰'+c.price}</strong>`;
+        div.innerHTML = `
+            <div style="font-size:1.5rem">${c.emoji}</div>
+            <div class="stats-text">❤️${c.hp} | ⚔️${c.dmg}</div>
+            <small>${owned ? 'COMPRADO' : '💰'+c.price}</small>`;
         div.onclick = () => { if(!owned && currentUser.gold >= c.price) { currentUser.gold -= c.price; currentUser.owned.push(c.id); save(); updateUI(); }};
         shop.appendChild(div);
     });
@@ -312,7 +280,10 @@ function renderGrids() {
         const inDeck = currentUser.deck.includes(id);
         const div = document.createElement('div');
         div.className = `item-card ${inDeck ? 'active' : ''}`;
-        div.innerHTML = `<div style="font-size:2rem">${c.emoji}</div><div class="stats-text">❤️${c.hp} | ⚔️${c.dmg}</div><strong style="color:white">${inDeck ? 'EN MAZO' : 'USAR'}</strong>`;
+        div.innerHTML = `
+            <div style="font-size:1.5rem">${c.emoji}</div>
+            <div class="stats-text">❤️${c.hp} | ⚔️${c.dmg}</div>
+            <small>${inDeck ? 'MAZO' : 'USAR'}</small>`;
         div.onclick = () => { if(!inDeck) { if(currentUser.deck.length >= 4) currentUser.deck.shift(); currentUser.deck.push(id); save(); updateUI(); }};
         deck.appendChild(div);
     });
@@ -324,142 +295,198 @@ function save() {
     localStorage.setItem('CLASH_DB_SECURE', JSON.stringify(db));
 }
 
-// ==========================================
-// GRÁFICOS 3D NIVEL SUPERCELL (MEJORADO)
-// ==========================================
+// --- GRÁFICOS Y JUEGO MEJORADOS ---
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87CEEB); // Cielo azul
-scene.fog = new THREE.Fog(0x87CEEB, 30, 60);
+scene.background = new THREE.Color(0x87CEEB); // Cielo azul claro
+scene.fog = new THREE.Fog(0x87CEEB, 20, 50);  // Niebla para profundidad
 
 const camera = new THREE.PerspectiveCamera(40, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(0, 26, 28); camera.lookAt(0, -2, 0);
+// Perspectiva más aérea e isométrica, ajustada para la jugabilidad horizontal (X axis)
+camera.position.set(0, 32, 28); 
+camera.lookAt(0, 0, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Sombras realistas
-renderer.toneMapping = THREE.ACESFilmicToneMapping; // Colores vivos
+renderer.shadowMap.enabled = true; // Sombras activadas
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
-const ambient = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
-const sun = new THREE.DirectionalLight(0xffffff, 1.8);
-sun.position.set(20, 35, 15); 
+// Iluminación mejorada
+const ambient = new THREE.AmbientLight(0xffffff, 0.65);
+const sun = new THREE.DirectionalLight(0xffffee, 1.2);
+sun.position.set(10, 30, 15); 
 sun.castShadow = true;
-sun.shadow.mapSize.width = 2048; sun.shadow.mapSize.height = 2048;
-sun.shadow.camera.left = -25; sun.shadow.camera.right = 25;
-sun.shadow.camera.top = 20; sun.shadow.camera.bottom = -20;
+sun.shadow.mapSize.width = 2048;
+sun.shadow.mapSize.height = 2048;
+sun.shadow.camera.near = 0.5;
+sun.shadow.camera.far = 100;
+sun.shadow.camera.left = -25;
+sun.shadow.camera.right = 25;
+sun.shadow.camera.top = 25;
+sun.shadow.camera.bottom = -25;
 scene.add(ambient, sun);
 
-// CARGA DE TUS ARCHIVOS .GLB (O respaldo procedural)
-const gltfLoader = new GLTFLoader();
-let customPekkaModel = null;
-let customEnvLoaded = false;
+// Función para generar textura de césped a cuadros
+function createGrassTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512; canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#4aa144'; ctx.fillRect(0,0,512,512);
+    ctx.fillStyle = '#41923c';
+    for(let i=0; i<8; i++){
+        for(let j=0; j<8; j++){
+            if((i+j)%2===0) ctx.fillRect(i*64, j*64, 64, 64);
+        }
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(4, 4);
+    return tex;
+}
 
-// Intentamos cargar la arena que subiste
-gltfLoader.load('enviroment_clash_royal.glb', (gltf) => {
-    const env = gltf.scene;
-    env.traverse((child) => { if (child.isMesh) { child.receiveShadow = true; child.castShadow = true; }});
-    env.position.set(0, -0.5, 0); // Ajustar altura
-    scene.add(env);
-    customEnvLoaded = true;
-    groundGroup.visible = false; // Ocultamos el procedural si carga el tuyo
-}, undefined, (e) => { console.log("Arena .glb no encontrada. Usando procedural."); });
+// CONSTRUCCIÓN DE LA ARENA (Escenario detallado)
+const arenaGroup = new THREE.Group();
 
-// Intentamos cargar tu PEKKA
-gltfLoader.load('mini_peka__mini_p.e.k.k.a..glb', (gltf) => {
-    customPekkaModel = gltf.scene;
-    customPekkaModel.scale.set(0.5, 0.5, 0.5); // Ajustar tamaño si es enorme
-    customPekkaModel.traverse((child) => { if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }});
-}, undefined, (e) => { console.log("Pekka .glb no encontrado. Usando personajes procedurales."); });
+// Suelo de césped
+const grassMat = new THREE.MeshStandardMaterial({ map: createGrassTexture(), roughness: 0.9 });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(46, 26), grassMat);
+ground.rotation.x = -Math.PI/2; 
+ground.receiveShadow = true;
+arenaGroup.add(ground);
 
-// --- ARENA PROCEDURAL (ESTILO CLASH ROYALE) ---
-const groundGroup = new THREE.Group();
+// Río central
+const riverGeometry = new THREE.PlaneGeometry(6, 26);
+const riverMat = new THREE.MeshStandardMaterial({ color: 0x2980b9, transparent: true, opacity: 0.85, roughness: 0.1 });
+const river = new THREE.Mesh(riverGeometry, riverMat);
+river.rotation.x = -Math.PI/2;
+river.position.y = 0.05; // Ligeramente por encima del suelo
+arenaGroup.add(river);
 
-// Textura Césped Ajedrez
-const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256;
-const ctx = canvas.getContext('2d');
-ctx.fillStyle = '#6ab04c'; ctx.fillRect(0,0,256,256);
-ctx.fillStyle = '#5ca23e'; ctx.fillRect(0,0,128,128); ctx.fillRect(128,128,128,128);
-const tex = new THREE.CanvasTexture(canvas);
-tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(12, 8);
-
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(42, 28), new THREE.MeshStandardMaterial({map: tex, roughness: 0.9}));
-ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; groundGroup.add(ground);
-
-// Río en medio
-const river = new THREE.Mesh(new THREE.PlaneGeometry(42, 4), new THREE.MeshStandardMaterial({color: 0x3498db, roughness: 0.1, metalness: 0.2}));
-river.rotation.x = -Math.PI/2; river.position.y = 0.05; river.receiveShadow = true; groundGroup.add(river);
+// Bordes del río (piedras)
+const riverEdgeGeo = new THREE.BoxGeometry(0.5, 0.2, 26);
+const stoneMat = new THREE.MeshStandardMaterial({color: 0x7f8c8d, roughness: 0.8});
+const edgeL = new THREE.Mesh(riverEdgeGeo, stoneMat); edgeL.position.set(-3, 0.1, 0);
+const edgeR = new THREE.Mesh(riverEdgeGeo, stoneMat); edgeR.position.set(3, 0.1, 0);
+arenaGroup.add(edgeL, edgeR);
 
 // Puentes
-function createBridge(z) {
-    const bridge = new THREE.Mesh(new THREE.BoxGeometry(4, 0.2, 3), new THREE.MeshStandardMaterial({color: 0x8B4513}));
-    bridge.position.set(0, 0.15, z); bridge.receiveShadow = true; bridge.castShadow = true;
-    groundGroup.add(bridge);
-}
-createBridge(5); createBridge(-5);
-scene.add(groundGroup);
+const bridgeGeo = new THREE.BoxGeometry(7, 0.3, 4);
+const bridgeMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.9 });
+const bridge1 = new THREE.Mesh(bridgeGeo, bridgeMat);
+bridge1.position.set(0, 0.15, 7); bridge1.receiveShadow = true; bridge1.castShadow = true;
+const bridge2 = new THREE.Mesh(bridgeGeo, bridgeMat);
+bridge2.position.set(0, 0.15, -7); bridge2.receiveShadow = true; bridge2.castShadow = true;
+arenaGroup.add(bridge1, bridge2);
 
-// --- CREADOR DE TROPAS ---
+scene.add(arenaGroup);
+
+// Función de creación de personajes mejorada visualmente según el tipo
 function createDetailedCharacter(config) {
-    // Si cargó tu PEKKA, lo usamos para la primera carta (id 0 o 1)
-    if(customPekkaModel && config.id % 2 === 0) {
-        return customPekkaModel.clone();
+    const group = new THREE.Group();
+    
+    const skinMat = new THREE.MeshStandardMaterial({color: 0xffccaa, roughness: 0.5});
+    const clothMat = new THREE.MeshStandardMaterial({color: config.color, roughness: 0.8});
+    const ironMat = new THREE.MeshStandardMaterial({color: 0xbdc3c7, metalness: 0.6, roughness: 0.4});
+    const woodMat = new THREE.MeshStandardMaterial({color: 0x5c4033, roughness: 0.9});
+
+    // Modificar tamaño según clase
+    let scale = 1;
+    if (config.name === "Gigante") scale = 1.6;
+    if (config.name === "Arquero") scale = 0.85;
+
+    // Cuerpo
+    const bodyGeo = new THREE.CapsuleGeometry(0.35, 0.5, 4, 12);
+    const body = new THREE.Mesh(bodyGeo, clothMat);
+    body.position.y = 0.6;
+    body.castShadow = true;
+
+    // Cabeza
+    const headGeo = new THREE.SphereGeometry(0.3, 16, 16);
+    const head = new THREE.Mesh(headGeo, skinMat);
+    head.position.y = 1.3;
+    head.castShadow = true;
+
+    // Equipamiento específico por clase
+    let weaponGroup = new THREE.Group();
+    if (config.name === "Guerrero" || config.name === "Caballero") {
+        const sword = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.8, 0.2), ironMat);
+        sword.position.set(0.5, 0.7, 0.3); sword.rotation.x = Math.PI/4; sword.castShadow = true;
+        weaponGroup.add(sword);
+        if (config.name === "Caballero") {
+            const shield = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16), ironMat);
+            shield.position.set(-0.5, 0.7, 0.2); shield.rotation.z = Math.PI/2; shield.castShadow = true;
+            weaponGroup.add(shield);
+        }
+    } else if (config.name === "Arquero") {
+        const bow = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.05, 8, 16, Math.PI), woodMat);
+        bow.position.set(0.5, 0.7, 0.2); bow.rotation.y = Math.PI/2; bow.castShadow = true;
+        weaponGroup.add(bow);
+    } else if (config.name === "Gigante") {
+        const fist1 = new THREE.Mesh(new THREE.SphereGeometry(0.25), skinMat); fist1.position.set(0.6, 0.6, 0.2); fist1.castShadow = true;
+        const fist2 = new THREE.Mesh(new THREE.SphereGeometry(0.25), skinMat); fist2.position.set(-0.6, 0.6, 0.2); fist2.castShadow = true;
+        weaponGroup.add(fist1, fist2);
+    } else if (config.name === "Mago") {
+        const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.2), woodMat);
+        staff.position.set(0.5, 0.7, 0.2); staff.castShadow = true;
+        const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.15), new THREE.MeshStandardMaterial({color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 0.5}));
+        gem.position.set(0.5, 1.3, 0.2);
+        weaponGroup.add(staff, gem);
+    } else if (config.name === "Bárbaro") {
+        const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.8), woodMat); handle.castShadow = true;
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.08), ironMat); blade.position.set(0.2, 0.3, 0); blade.castShadow = true;
+        const axe = new THREE.Group(); axe.add(handle, blade); axe.position.set(0.5, 0.7, 0.2);
+        weaponGroup.add(axe);
     }
 
-    // Personaje Estilo Supercell (Procedural Mejorado)
-    const group = new THREE.Group();
-    const mat = new THREE.MeshStandardMaterial({color: config.color, metalness: 0.3, roughness: 0.6});
-    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 0.6, 4, 16), mat);
-    body.position.y = 0.8; body.castShadow = true;
-    
-    // Sombra proyectada (círculo debajo)
-    const shadow = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.2), new THREE.MeshBasicMaterial({color: 0x000000, transparent: true, opacity: 0.4}));
-    shadow.rotation.x = -Math.PI/2; shadow.position.y = 0.02;
-
-    const helmet = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.45, 0.5, 12), new THREE.MeshStandardMaterial({color: 0x222222, metalness: 0.8, roughness: 0.2}));
-    helmet.position.y = 1.4; helmet.castShadow = true;
-    
-    const weapon = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1, 0.2), new THREE.MeshStandardMaterial({color: 0xecf0f1, metalness: 1, roughness: 0.2}));
-    weapon.position.set(0.6, 0.8, 0.3); weapon.rotation.x = 0.5; weapon.castShadow = true;
-
-    group.add(body, helmet, weapon, shadow);
+    group.add(body, head, weaponGroup);
+    group.scale.set(scale, scale, scale);
     return group;
 }
 
-// --- CREADOR DE TORRES (CASTILLOS) ---
+let towers = { player: null, enemy: null }, troops = [], gameActive = false, elixir = 0;
+
+// Torres mejoradas visualmente (Estilo castillo real)
 function createTower(x, color, isPlayer) {
     const group = new THREE.Group();
-    const matBase = new THREE.MeshStandardMaterial({color: 0x95a5a6, roughness: 0.8});
-    const matTeam = new THREE.MeshStandardMaterial({color: color, roughness: 0.5});
     
-    // Base cilindro principal
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 2, 4.5, 12), matBase);
-    base.position.y = 2.25; base.castShadow = true; base.receiveShadow = true;
-    
-    // Suelo superior del equipo
-    const top = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 0.5, 12), matTeam);
-    top.position.y = 4.75; top.castShadow = true;
+    // Base de piedra
+    const baseGeo = new THREE.BoxGeometry(3.5, 3.5, 3.5);
+    const stoneMat = new THREE.MeshStandardMaterial({color: 0xbdc3c7, roughness: 0.8});
+    const base = new THREE.Mesh(baseGeo, stoneMat);
+    base.position.y = 1.75;
+    base.castShadow = true; base.receiveShadow = true;
 
-    // Almenas del castillo (Detalle extra)
-    for(let i=0; i<6; i++) {
-        const almena = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.6), matBase);
-        const ang = (i / 6) * Math.PI * 2;
-        almena.position.set(Math.cos(ang)*1.6, 5.2, Math.sin(ang)*1.6);
-        almena.castShadow = true;
-        group.add(almena);
-    }
+    // Almenas superiores (Color del equipo)
+    const topGeo = new THREE.CylinderGeometry(2.2, 2.5, 1.5, 8);
+    const teamMat = new THREE.MeshStandardMaterial({color: color, roughness: 0.6});
+    const top = new THREE.Mesh(topGeo, teamMat);
+    top.position.y = 4.25;
+    top.castShadow = true;
 
-    group.add(base, top); group.position.set(x, 0, 0);
+    // Suelo de madera superior
+    const floorGeo = new THREE.CylinderGeometry(2, 2, 1.6, 8);
+    const woodMat = new THREE.MeshStandardMaterial({color: 0x5c4033});
+    const floor = new THREE.Mesh(floorGeo, woodMat);
+    floor.position.y = 4.25;
+
+    // Rey/Princesa representativo en la torre
+    const kingHead = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 16), new THREE.MeshStandardMaterial({color: 0xffccaa}));
+    kingHead.position.y = 5.3;
+    const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.2, 0.4, 6), new THREE.MeshStandardMaterial({color: 0xffd700}));
+    crown.position.y = 5.8;
+
+    group.add(base, top, floor, kingHead, crown);
+    group.position.set(x, 0, 0);
     scene.add(group);
-    
+
     const bar = document.createElement('div');
     bar.className = 'hp-bar-container';
-    bar.innerHTML = `<div class="hp-bar-fill" style="background:${isPlayer ? 'linear-gradient(90deg, #0984e3, #74b9ff)' : 'linear-gradient(90deg, #d63031, #ff7675)'}"></div>`;
+    bar.innerHTML = `<div class="hp-bar-fill" style="background:${isPlayer ? 'var(--blue)' : 'var(--red)'}"></div>`;
     document.getElementById('hp-bars-layer').appendChild(bar);
+    
     return { mesh: group, hp: isPlayer ? 5000 : 2000, maxHp: isPlayer ? 5000 : 2000, bar, x };
 }
-
-let towers = { player: null, enemy: null }, troops = [], gameActive = false, elixir = 0;
 
 function startMatch() {
     document.getElementById('screen-lobby').classList.add('hidden');
@@ -469,14 +496,26 @@ function startMatch() {
     troops = [];
     if(towers.player) scene.remove(towers.player.mesh);
     if(towers.enemy) scene.remove(towers.enemy.mesh);
-    
-    // Distancia de torres
-    towers.player = createTower(-16, 0x0984e3, true);
-    towers.enemy = createTower(16, 0xd63031, false);
-    
+    towers.player = createTower(-16, 0x2196F3, true);
+    towers.enemy = createTower(16, 0xF44336, false);
     gameActive = true; elixir = 5;
     renderHand(); 
     animate();
+}
+
+function startSoloGame() {
+    isMultiplayer = false;
+    startMatch();
+}
+
+function quitMatch() {
+    gameActive = false;
+    isMultiplayer = false;
+    if(conn) { conn.close(); conn = null; }
+    alert("Te has retirado de la partida.");
+    document.getElementById('game-ui').classList.add('hidden');
+    document.getElementById('screen-lobby').classList.remove('hidden');
+    updateUI();
 }
 
 function spawnUnit(id, owner, z, sync = false) {
@@ -484,25 +523,15 @@ function spawnUnit(id, owner, z, sync = false) {
     const mesh = createDetailedCharacter(c);
     mesh.position.set(owner === 'player' ? -14 : 14, 0, z);
     scene.add(mesh);
-    
     const bar = document.createElement('div');
     bar.className = 'hp-bar-container';
-    bar.style.width = '40px'; bar.style.height = '6px';
-    bar.innerHTML = `<div class="hp-bar-fill" style="background:${owner === 'player' ? '#74b9ff' : '#ff7675'}"></div>`;
+    bar.innerHTML = `<div class="hp-bar-fill" style="background:${owner === 'player' ? 'var(--blue)' : 'var(--red)'}"></div>`;
     document.getElementById('hp-bars-layer').appendChild(bar);
-    
     troops.push({ ...c, owner, mesh, bar, hp: c.hp, maxHp: c.hp, currentDmg: (owner==='player' ? c.dmg*1.5 : c.dmg) });
 
-    if(sync && isMultiplayer && conn) conn.send({type:'spawn', id: id, z: z});
-}
-
-window.spawnPlayerUnit = function(id) {
-    const c = CHARS_DB[id];
-    if(elixir >= c.cost) { 
-        // Generar solo en los puentes (z = 5 o z = -5 aprox) para parecerse al juego
-        const laneZ = Math.random() > 0.5 ? 5 : -5;
-        spawnUnit(id, 'player', laneZ + (Math.random()-0.5)*2, true); 
-        elixir -= c.cost; 
+    // Sincronizar el spawn con el otro jugador si es multijugador
+    if(sync && isMultiplayer && conn) {
+        conn.send({type:'spawn', id: id, z: z});
     }
 }
 
@@ -512,8 +541,8 @@ function renderHand() {
         const c = CHARS_DB[id];
         const d = document.createElement('div');
         d.className = 'card';
-        d.innerHTML = `<span style="color:var(--elixir); font-size:1.2rem; font-weight:bold; margin-bottom:5px;">💧${c.cost}</span><div style="font-size:2.5rem">${c.emoji}</div>`;
-        d.onclick = () => window.spawnPlayerUnit(id);
+        d.innerHTML = `<span style="color:var(--elixir)">💧${c.cost}</span><div style="font-size:1.5rem">${c.emoji}</div>`;
+        d.onclick = () => { if(elixir >= c.cost) { spawnUnit(id, 'player', (Math.random()-0.5)*8, true); elixir -= c.cost; }};
         h.appendChild(d);
     });
 }
@@ -522,40 +551,39 @@ function animate() {
     if(!gameActive) return;
     requestAnimationFrame(animate);
     const dt = 0.016;
-    elixir = Math.min(10, elixir + dt * 0.4);
+    elixir = Math.min(10, elixir + dt * 0.7);
     document.getElementById('elixir-fill').style.width = (elixir * 10) + "%";
     document.getElementById('elixir-num').innerText = Math.floor(elixir);
 
-    if(!isMultiplayer && Math.random() < 0.0035) {
-        const laneZ = Math.random() > 0.5 ? 5 : -5;
-        spawnUnit(Math.floor(Math.random()*6), 'enemy', laneZ + (Math.random()-0.5)*2, false);
-    }
+    if(!isMultiplayer && Math.random() < 0.0035) spawnUnit(Math.floor(Math.random()*6), 'enemy', (Math.random()-0.5)*8, false);
 
     for(let i = troops.length-1; i>=0; i--) {
         const t = troops[i];
         if(t.hp <= 0) { scene.remove(t.mesh); t.bar.remove(); troops.splice(i,1); continue; }
-        
         let target = null, minDist = 5;
         troops.forEach(e => { if(e.owner !== t.owner) { let d = t.mesh.position.distanceTo(e.mesh.position); if(d < minDist) { minDist = d; target = e; }}});
         
         if(target) {
-            if(minDist < 1.5) { target.hp -= t.currentDmg * dt; t.mesh.rotation.z = Math.sin(Date.now()*0.02)*0.2; }
+            if(minDist < 1.2) target.hp -= t.currentDmg * dt;
             else move(t, target.mesh.position, dt);
         } else {
             const tow = t.owner === 'player' ? towers.enemy : towers.player;
-            if(Math.abs(t.mesh.position.x - tow.x) < 3) {
+            if(Math.abs(t.mesh.position.x - tow.x) < 2) {
                 tow.hp -= (t.currentDmg*0.5)*dt;
-                t.mesh.rotation.z = Math.sin(Date.now()*0.02)*0.2; // Animación de ataque
-                if(isMultiplayer && conn && t.owner === 'player') conn.send({type:'tower_hp', hp: towers.enemy.hp});
+                // Sincronizar el daño que nuestro jugador le hace a la torre enemiga
+                if(isMultiplayer && conn && t.owner === 'player') {
+                    conn.send({type:'tower_hp', hp: towers.enemy.hp});
+                }
             } else {
-                move(t, new THREE.Vector3(tow.x, 0, t.mesh.position.z), dt); // Camina en línea recta hacia la torre
+                move(t, new THREE.Vector3(tow.x, 0, 0), dt);
             }
         }
-        updateBar(t.mesh.position, t.bar, t.hp/t.maxHp, 50);
+        updateBar(t.mesh.position, t.bar, t.hp/t.maxHp);
     }
     
-    updateBar(towers.player.mesh.position, towers.player.bar, towers.player.hp/towers.player.maxHp, 100);
-    updateBar(towers.enemy.mesh.position, towers.enemy.bar, towers.enemy.hp/towers.enemy.maxHp, 100);
+    // Position of healthbars for towers
+    updateBar(new THREE.Vector3(towers.player.x, 6, 0), towers.player.bar, towers.player.hp/towers.player.maxHp);
+    updateBar(new THREE.Vector3(towers.enemy.x, 6, 0), towers.enemy.bar, towers.enemy.hp/towers.enemy.maxHp);
     
     if(towers.enemy.hp <= 0) endMatch(true);
     if(towers.player.hp <= 0) endMatch(false);
@@ -565,21 +593,22 @@ function animate() {
 function move(t, pos, dt) {
     const dir = new THREE.Vector3().subVectors(pos, t.mesh.position).normalize();
     t.mesh.position.add(dir.multiplyScalar(t.speed * dt));
-    t.mesh.lookAt(pos.x, t.mesh.position.y, pos.z);
-    t.mesh.position.y = Math.abs(Math.sin(Date.now()*0.015*t.speed))*0.15; // Rebote realista al caminar
+    t.mesh.lookAt(pos.x, 0, pos.z);
+    t.mesh.position.y = Math.abs(Math.sin(Date.now()*0.01*t.speed))*0.15; // Un pequeño rebote al caminar
 }
 
-function updateBar(pos3d, bar, pct, offset) {
+function updateBar(pos3d, bar, pct) {
     const v = pos3d.clone().project(camera);
     bar.style.left = (v.x * 0.5 + 0.5) * window.innerWidth + "px";
-    bar.style.top = (-(v.y * 0.5 - 0.5) * window.innerHeight) - offset + "px";
+    bar.style.top = (-(v.y * 0.5 - 0.5) * window.innerHeight) - 40 + "px";
     bar.firstChild.style.width = Math.max(0, pct * 100) + "%";
 }
 
 function endMatch(win) {
-    gameActive = false; isMultiplayer = false;
+    gameActive = false;
+    isMultiplayer = false;
     if(conn) { conn.close(); conn = null; }
-    alert(win ? "¡VICTORIA ÉPICA! +500 Oro" : "DERROTA");
+    alert(win ? "¡VICTORIA! +500 Oro" : "DERROTA");
     if(win) { currentUser.gold += 500; currentUser.wins++; save(); }
     document.getElementById('game-ui').classList.add('hidden');
     document.getElementById('screen-lobby').classList.remove('hidden');

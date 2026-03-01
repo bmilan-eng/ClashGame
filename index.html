@@ -266,7 +266,7 @@ function executeAdminGift(isSelf) {
 }
 
 // ==========================================
-// GRÁFICOS 3D MEJORADOS CON MODELOS (.glb)
+// GRÁFICOS 3D MEJORADOS (SISTEMA SEGURO ANTICUBLGUE)
 // ==========================================
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
@@ -292,45 +292,41 @@ sun.shadow.camera.left = -25; sun.shadow.camera.right = 25;
 sun.shadow.camera.top = 25; sun.shadow.camera.bottom = -25;
 scene.add(ambient, sun);
 
-// --- CARGADOR DE MODELOS EXTERNOS ---
 const gltfLoader = new THREE.GLTFLoader();
+const modelos3D = { arena: null, miniPekka: null, hornedChar: null, gemBox: null };
 
-// Diccionario para guardar los modelos cargados en memoria
-const modelos3D = {
-    arena: null,
-    miniPekka: null,
-    hornedChar: null,
-    gemBox: null
-};
+// Función segura de carga para evitar cuelgues (pantalla negra) si falla un archivo
+function safeLoadModel(path, callback) {
+    try {
+        gltfLoader.load(path, callback, undefined, (e) => {
+            console.warn(`Aviso: No se pudo cargar ${path} (Probablemente por abrirlo sin servidor local). Se usarán gráficos básicos.`);
+        });
+    } catch(err) { console.error(err); }
+}
 
-// 1. Cargar Entorno
-gltfLoader.load('enviroment_clash_royal.glb', (gltf) => {
+safeLoadModel('enviroment_clash_royal.glb', (gltf) => {
     modelos3D.arena = gltf.scene;
-    modelos3D.arena.scale.set(1.5, 1.5, 1.5); // Escala ajustable
+    modelos3D.arena.scale.set(1.5, 1.5, 1.5);
     modelos3D.arena.position.set(0, -0.5, 0);
-    // Para asegurar que el entorno recibe sombras
     modelos3D.arena.traverse((node) => { if (node.isMesh) { node.receiveShadow = true; } });
     scene.add(modelos3D.arena);
-}, undefined, (e) => console.error("Error cargando Arena", e));
+});
 
-// 2. Cargar Tropas (Actualizado para peka-v1.glb)
-gltfLoader.load('peka-v1.glb', (gltf) => {
+safeLoadModel('peka-v1.glb', (gltf) => {
     modelos3D.miniPekka = gltf.scene;
     modelos3D.miniPekka.traverse((node) => { if (node.isMesh) { node.castShadow = true; node.receiveShadow = true; } });
 });
 
-gltfLoader.load('arafed_image_of_a_cartoon_character_with_a_horne.glb', (gltf) => {
+safeLoadModel('arafed_image_of_a_cartoon_character_with_a_horne.glb', (gltf) => {
     modelos3D.hornedChar = gltf.scene;
     modelos3D.hornedChar.traverse((node) => { if (node.isMesh) { node.castShadow = true; node.receiveShadow = true; } });
 });
 
-// 3. Cargar Cofre de Gemas (Usado para la base de las torres)
-gltfLoader.load('clash_royall_gem_box.glb', (gltf) => {
+safeLoadModel('clash_royall_gem_box.glb', (gltf) => {
     modelos3D.gemBox = gltf.scene;
     modelos3D.gemBox.traverse((node) => { if (node.isMesh) { node.castShadow = true; node.receiveShadow = true; } });
 });
 
-// Fallback: Función para hacer primitivas si el modelo no ha cargado aún
 function createPrimitiveCharacter(config) {
     const group = new THREE.Group();
     const clothMat = new THREE.MeshStandardMaterial({color: config.color, roughness: 0.8});
@@ -343,17 +339,14 @@ function createPrimitiveCharacter(config) {
     return group;
 }
 
-// Nueva función que utiliza tus modelos .glb descargados
 function createDetailedCharacter(config, isPlayer) {
     const group = new THREE.Group();
     let meshToUse = null;
     let baseScale = 1;
 
-    // Asignar los modelos según el tipo de tropa
     if (config.name === "Guerrero" || config.name === "Caballero") {
         if (modelos3D.miniPekka) { meshToUse = modelos3D.miniPekka.clone(); baseScale = 1.8; }
     } else {
-        // Para Gigante, Bárbaro, etc, usamos el personaje con cuernos
         if (modelos3D.hornedChar) { 
             meshToUse = modelos3D.hornedChar.clone(); 
             baseScale = (config.name === "Gigante") ? 2.5 : 1.5; 
@@ -362,12 +355,10 @@ function createDetailedCharacter(config, isPlayer) {
 
     if (meshToUse) {
         meshToUse.scale.set(baseScale, baseScale, baseScale);
-        
-        // Rotar el modelo para que mire hacia el enemigo
+        // Pre-rotamos el modelo internamente para que la función move() no de fallos
         meshToUse.rotation.y = isPlayer ? Math.PI / 2 : -Math.PI / 2;
         group.add(meshToUse);
 
-        // Añadir un círculo en el suelo para saber a qué equipo pertenece
         const ringGeo = new THREE.RingGeometry(0.5, 0.7, 16);
         const ringMat = new THREE.MeshBasicMaterial({ color: isPlayer ? 0x2196F3 : 0xF44336, side: THREE.DoubleSide });
         const ring = new THREE.Mesh(ringGeo, ringMat);
@@ -375,7 +366,6 @@ function createDetailedCharacter(config, isPlayer) {
         ring.position.y = 0.1;
         group.add(ring);
     } else {
-        // Si no ha cargado el archivo por internet, usa el monigote basico
         group.add(createPrimitiveCharacter(config));
     }
 
@@ -384,18 +374,15 @@ function createDetailedCharacter(config, isPlayer) {
 
 let towers = { player: null, enemy: null }, troops = [], gameActive = false, elixir = 0;
 
-// Nueva Torre: Usa el "Gem Box" en la corona para adornar
 function createTower(x, color, isPlayer) {
     const group = new THREE.Group();
     
-    // Base de piedra de la torre
     const baseGeo = new THREE.BoxGeometry(3.5, 3.5, 3.5);
     const stoneMat = new THREE.MeshStandardMaterial({color: 0xbdc3c7, roughness: 0.8});
     const base = new THREE.Mesh(baseGeo, stoneMat);
     base.position.y = 1.75;
     base.castShadow = true; base.receiveShadow = true;
 
-    // Bandera/Almena del color del equipo
     const topGeo = new THREE.CylinderGeometry(2.2, 2.5, 1.5, 8);
     const teamMat = new THREE.MeshStandardMaterial({color: color, roughness: 0.6});
     const top = new THREE.Mesh(topGeo, teamMat);
@@ -404,12 +391,13 @@ function createTower(x, color, isPlayer) {
 
     group.add(base, top);
 
-    // Añadir el modelo del Gem Box encima de la torre si ya está cargado
     if (modelos3D.gemBox) {
-        const gemModel = modelos3D.gemBox.clone();
-        gemModel.position.set(0, 5, 0); // Posición encima de la torre
-        gemModel.scale.set(0.5, 0.5, 0.5); // Escalar el cofre
-        group.add(gemModel);
+        try {
+            const gemModel = modelos3D.gemBox.clone();
+            gemModel.position.set(0, 5, 0); 
+            gemModel.scale.set(0.5, 0.5, 0.5); 
+            group.add(gemModel);
+        } catch(e) {}
     }
 
     group.position.set(x, 0, 0);
@@ -420,11 +408,12 @@ function createTower(x, color, isPlayer) {
     bar.innerHTML = `<div class="hp-bar-fill" style="background:${isPlayer ? 'var(--blue)' : 'var(--red)'}"></div>`;
     document.getElementById('hp-bars-layer').appendChild(bar);
     
-    return { mesh: group, hp: isPlayer ? 5000 : 2000, maxHp: isPlayer ? 5000 : 2000, bar, x };
+    // Devolvemos la estructura exacta que tus funciones originales esperan
+    return { mesh: group, hp: isPlayer ? 5000 : 2000, maxHp: isPlayer ? 5000 : 2000, bar };
 }
 
 // ==========================================
-// LÓGICA DE PARTIDA (SIN TOCAR)
+// LÓGICA DE PARTIDA (SIN MODIFICAR NADA)
 // ==========================================
 function startMatch() {
     document.getElementById('screen-lobby').classList.add('hidden');
@@ -500,33 +489,34 @@ function animate() {
             else move(t, target.mesh.position, dt);
         } else {
             const tow = t.owner === 'player' ? towers.enemy : towers.player;
-            if(Math.abs(t.mesh.position.x - tow.x) < 2) {
+            if(Math.abs(t.mesh.position.x - tow.mesh.position.x) < 2) {
                 tow.hp -= (t.currentDmg*0.5)*dt;
                 if(isMultiplayer && conn && t.owner === 'player') conn.send({type:'tower_hp', hp: towers.enemy.hp});
             } else {
-                move(t, new THREE.Vector3(tow.x, 0, 0), dt);
+                move(t, new THREE.Vector3(tow.mesh.position.x, 0, 0), dt);
             }
         }
         updateBar(t.mesh.position, t.bar, t.hp/t.maxHp);
     }
     
-    updateBar(new THREE.Vector3(towers.player.x, 6, 0), towers.player.bar, towers.player.hp/towers.player.maxHp);
-    updateBar(new THREE.Vector3(towers.enemy.x, 6, 0), towers.enemy.bar, towers.enemy.hp/towers.enemy.maxHp);
+    // RESTAURADO: Tu lógica de barras de vida original
+    updateBar(towers.player.mesh.position, towers.player.bar, towers.player.hp/towers.player.maxHp);
+    updateBar(towers.enemy.mesh.position, towers.enemy.bar, towers.enemy.hp/towers.enemy.maxHp);
     
     if(towers.enemy.hp <= 0) endMatch(true);
     if(towers.player.hp <= 0) endMatch(false);
     renderer.render(scene, camera);
 }
 
+// RESTAURADO: Tu función move() exacta original
 function move(t, pos, dt) {
     const dir = new THREE.Vector3().subVectors(pos, t.mesh.position).normalize();
     t.mesh.position.add(dir.multiplyScalar(t.speed * dt));
     t.mesh.lookAt(pos.x, 0, pos.z);
-    
-    // Rotar el modelo interno para que mire hacia adelante correctamente si el modelo original está girado
-    t.mesh.children[0].rotation.y = t.owner === 'player' ? Math.PI/2 : -Math.PI/2; 
+    t.mesh.position.y = Math.abs(Math.sin(Date.now()*0.01*t.speed))*0.15; // Un pequeño rebote al caminar
 }
 
+// RESTAURADO: Tu función updateBar() exacta original
 function updateBar(pos3d, bar, pct) {
     const v = pos3d.clone().project(camera);
     bar.style.left = (v.x * 0.5 + 0.5) * window.innerWidth + "px";

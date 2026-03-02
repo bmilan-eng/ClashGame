@@ -270,7 +270,8 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
-const ambient = new THREE.AmbientLight(0xffffff, 0.7);
+// ILUMINACIÓN REFORZADA PARA EVITAR OSCURIDAD EN EL .GLB
+const ambient = new THREE.AmbientLight(0xffffff, 1.2); // Más intensidad base
 const sun = new THREE.DirectionalLight(0xffffee, 1.2);
 sun.position.set(10, 30, 15); sun.castShadow = true;
 sun.shadow.mapSize.width = 2048; sun.shadow.mapSize.height = 2048;
@@ -278,9 +279,9 @@ scene.add(ambient, sun);
 
 // --- CARGA DEL CAMPO DE BATALLA EXTERNO (GLB) ---
 const loader = new THREE.GLTFLoader();
-loader.load('enviroment_clash_royal.glb', (gltf) => {
+// SOLUCIÓN AL BUG: Carga directa desde la raíz usando ./
+loader.load('./enviroment_clash_royal.glb', (gltf) => {
     const model = gltf.scene;
-    // Ajustar escala y posición si es necesario para que encaje con las torres (X=16/-16)
     model.scale.set(1, 1, 1); 
     model.position.set(0, 0, 0);
     model.traverse(child => {
@@ -290,9 +291,9 @@ loader.load('enviroment_clash_royal.glb', (gltf) => {
         }
     });
     scene.add(model);
+    console.log("Campo de batalla cargado desde la raíz");
 }, undefined, (error) => {
-    console.error("Error cargando el campo de batalla:", error);
-    // Fallback: Si el archivo no carga, podrías poner un plano básico
+    console.error("Error crítico de carga:", error);
 });
 
 function createDetailedCharacter(config) {

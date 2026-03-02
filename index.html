@@ -147,22 +147,22 @@
 <script>
 let currentUser = null;
 let peer = null, conn = null, isMultiplayer = false;
-let modelCache = {};
+let arenaModel = null;
 let gltfLoader = null;
 
-// --- CARGAR GLTF LOADER Y MODELO GLB ---
+// --- CARGAR GLTF LOADER Y MODELO GLB (ARENA) ---
 function initGLTFLoader() {
     gltfLoader = new THREE.GLTFLoader();
     gltfLoader.load('https://raw.githubusercontent.com/bmilan-eng/ClashGame/main/enviroment_clash_royal.glb', 
         (gltf) => {
-            console.log('Modelo GLB cargado exitosamente');
-            modelCache['character'] = gltf.scene;
+            console.log('Modelo de arena cargado exitosamente');
+            arenaModel = gltf.scene;
         },
         (progress) => {
-            console.log('Cargando modelo: ' + Math.round((progress.loaded / progress.total) * 100) + '%');
+            console.log('Cargando arena: ' + Math.round((progress.loaded / progress.total) * 100) + '%');
         },
         (error) => {
-            console.error('Error al cargar el modelo GLB:', error);
+            console.error('Error al cargar el modelo de arena:', error);
         }
     );
 }
@@ -318,8 +318,8 @@ function save() {
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
 
-const camera = new THREE.PerspectiveCamera(40, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(0, 32, 28); 
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.set(0, 50, 5); 
 camera.lookAt(0, 0, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -328,142 +328,93 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
-const ambient = new THREE.AmbientLight(0xffffff, 0.65);
+const ambient = new THREE.AmbientLight(0xffffff, 0.75);
 const sun = new THREE.DirectionalLight(0xffffee, 1.2);
-sun.position.set(10, 30, 15); 
+sun.position.set(10, 50, 15); 
 sun.castShadow = true;
 sun.shadow.mapSize.width = 2048;
 sun.shadow.mapSize.height = 2048;
 sun.shadow.camera.near = 0.5;
-sun.shadow.camera.far = 100;
-sun.shadow.camera.left = -25;
-sun.shadow.camera.right = 25;
-sun.shadow.camera.top = 25;
-sun.shadow.camera.bottom = -25;
+sun.shadow.camera.far = 150;
+sun.shadow.camera.left = -50;
+sun.shadow.camera.right = 50;
+sun.shadow.camera.top = 50;
+sun.shadow.camera.bottom = -50;
 scene.add(ambient, sun);
 
-function createGrassTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 512; canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#4aa144'; ctx.fillRect(0,0,512,512);
-    ctx.fillStyle = '#41923c';
-    for(let i=0; i<8; i++){
-        for(let j=0; j<8; j++){
-            if((i+j)%2===0) ctx.fillRect(i*64, j*64, 64, 64);
-        }
-    }
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(4, 4);
-    return tex;
-}
-
-const arenaGroup = new THREE.Group();
-
-const grassMat = new THREE.MeshStandardMaterial({ map: createGrassTexture(), roughness: 0.9 });
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(46, 26), grassMat);
-ground.rotation.x = -Math.PI/2; 
-ground.receiveShadow = true;
-arenaGroup.add(ground);
-
-const riverGeometry = new THREE.PlaneGeometry(6, 26);
-const riverMat = new THREE.MeshStandardMaterial({ color: 0x2980b9, transparent: true, opacity: 0.85, roughness: 0.1 });
-const river = new THREE.Mesh(riverGeometry, riverMat);
-river.rotation.x = -Math.PI/2;
-river.position.y = 0.05;
-arenaGroup.add(river);
-
-const riverEdgeGeo = new THREE.BoxGeometry(0.5, 0.2, 26);
-const stoneMat = new THREE.MeshStandardMaterial({color: 0x7f8c8d, roughness: 0.8});
-const edgeL = new THREE.Mesh(riverEdgeGeo, stoneMat); edgeL.position.set(-3, 0.1, 0);
-const edgeR = new THREE.Mesh(riverEdgeGeo, stoneMat); edgeR.position.set(3, 0.1, 0);
-arenaGroup.add(edgeL, edgeR);
-
-const bridgeGeo = new THREE.BoxGeometry(7, 0.3, 4);
-const bridgeMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.9 });
-const bridge1 = new THREE.Mesh(bridgeGeo, bridgeMat);
-bridge1.position.set(0, 0.15, 7); bridge1.receiveShadow = true; bridge1.castShadow = true;
-const bridge2 = new THREE.Mesh(bridgeGeo, bridgeMat);
-bridge2.position.set(0, 0.15, -7); bridge2.receiveShadow = true; bridge2.castShadow = true;
-arenaGroup.add(bridge1, bridge2);
-
-scene.add(arenaGroup);
-
-// Función para crear personaje desde GLB o fallback
-function createDetailedCharacter(config) {
-    if(modelCache['character']) {
-        const clone = modelCache['character'].clone();
-        clone.traverse((child) => {
+// --- CARGAR ARENA GLB ---
+function loadArenaFromGLB() {
+    if(arenaModel) {
+        const arenaClone = arenaModel.clone();
+        arenaClone.traverse((child) => {
             if(child.isMesh) {
                 child.castShadow = true;
                 child.receiveShadow = true;
             }
         });
-        let scale = 1;
-        if (config.name === "Gigante") scale = 1.6;
-        if (config.name === "Arquero") scale = 0.85;
-        clone.scale.set(scale, scale, scale);
-        return clone;
-    } else {
-        // Fallback: crear personaje procedural si el GLB no está cargado
-        const group = new THREE.Group();
-        
-        const skinMat = new THREE.MeshStandardMaterial({color: 0xffccaa, roughness: 0.5});
-        const clothMat = new THREE.MeshStandardMaterial({color: config.color, roughness: 0.8});
-        const ironMat = new THREE.MeshStandardMaterial({color: 0xbdc3c7, metalness: 0.6, roughness: 0.4});
-        const woodMat = new THREE.MeshStandardMaterial({color: 0x5c4033, roughness: 0.9});
-
-        let scale = 1;
-        if (config.name === "Gigante") scale = 1.6;
-        if (config.name === "Arquero") scale = 0.85;
-
-        const bodyGeo = new THREE.CapsuleGeometry(0.35, 0.5, 4, 12);
-        const body = new THREE.Mesh(bodyGeo, clothMat);
-        body.position.y = 0.6;
-        body.castShadow = true;
-
-        const headGeo = new THREE.SphereGeometry(0.3, 16, 16);
-        const head = new THREE.Mesh(headGeo, skinMat);
-        head.position.y = 1.3;
-        head.castShadow = true;
-
-        let weaponGroup = new THREE.Group();
-        if (config.name === "Guerrero" || config.name === "Caballero") {
-            const sword = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.8, 0.2), ironMat);
-            sword.position.set(0.5, 0.7, 0.3); sword.rotation.x = Math.PI/4; sword.castShadow = true;
-            weaponGroup.add(sword);
-            if (config.name === "Caballero") {
-                const shield = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16), ironMat);
-                shield.position.set(-0.5, 0.7, 0.2); shield.rotation.z = Math.PI/2; shield.castShadow = true;
-                weaponGroup.add(shield);
-            }
-        } else if (config.name === "Arquero") {
-            const bow = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.05, 8, 16, Math.PI), woodMat);
-            bow.position.set(0.5, 0.7, 0.2); bow.rotation.y = Math.PI/2; bow.castShadow = true;
-            weaponGroup.add(bow);
-        } else if (config.name === "Gigante") {
-            const fist1 = new THREE.Mesh(new THREE.SphereGeometry(0.25), skinMat); fist1.position.set(0.6, 0.6, 0.2); fist1.castShadow = true;
-            const fist2 = new THREE.Mesh(new THREE.SphereGeometry(0.25), skinMat); fist2.position.set(-0.6, 0.6, 0.2); fist2.castShadow = true;
-            weaponGroup.add(fist1, fist2);
-        } else if (config.name === "Mago") {
-            const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.2), woodMat);
-            staff.position.set(0.5, 0.7, 0.2); staff.castShadow = true;
-            const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.15), new THREE.MeshStandardMaterial({color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 0.5}));
-            gem.position.set(0.5, 1.3, 0.2);
-            weaponGroup.add(staff, gem);
-        } else if (config.name === "Bárbaro") {
-            const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.8), woodMat); handle.castShadow = true;
-            const blade = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.08), ironMat); blade.position.set(0.2, 0.3, 0); blade.castShadow = true;
-            const axe = new THREE.Group(); axe.add(handle, blade); axe.position.set(0.5, 0.7, 0.2);
-            weaponGroup.add(axe);
-        }
-
-        group.add(body, head, weaponGroup);
-        group.scale.set(scale, scale, scale);
-        return group;
+        scene.add(arenaClone);
+        return arenaClone;
     }
+    return null;
+}
+
+// Función de creación de personajes (MANTIENE PROCEDURAL)
+function createDetailedCharacter(config) {
+    const group = new THREE.Group();
+    
+    const skinMat = new THREE.MeshStandardMaterial({color: 0xffccaa, roughness: 0.5});
+    const clothMat = new THREE.MeshStandardMaterial({color: config.color, roughness: 0.8});
+    const ironMat = new THREE.MeshStandardMaterial({color: 0xbdc3c7, metalness: 0.6, roughness: 0.4});
+    const woodMat = new THREE.MeshStandardMaterial({color: 0x5c4033, roughness: 0.9});
+
+    let scale = 1;
+    if (config.name === "Gigante") scale = 1.6;
+    if (config.name === "Arquero") scale = 0.85;
+
+    const bodyGeo = new THREE.CapsuleGeometry(0.35, 0.5, 4, 12);
+    const body = new THREE.Mesh(bodyGeo, clothMat);
+    body.position.y = 0.6;
+    body.castShadow = true;
+
+    const headGeo = new THREE.SphereGeometry(0.3, 16, 16);
+    const head = new THREE.Mesh(headGeo, skinMat);
+    head.position.y = 1.3;
+    head.castShadow = true;
+
+    let weaponGroup = new THREE.Group();
+    if (config.name === "Guerrero" || config.name === "Caballero") {
+        const sword = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.8, 0.2), ironMat);
+        sword.position.set(0.5, 0.7, 0.3); sword.rotation.x = Math.PI/4; sword.castShadow = true;
+        weaponGroup.add(sword);
+        if (config.name === "Caballero") {
+            const shield = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16), ironMat);
+            shield.position.set(-0.5, 0.7, 0.2); shield.rotation.z = Math.PI/2; shield.castShadow = true;
+            weaponGroup.add(shield);
+        }
+    } else if (config.name === "Arquero") {
+        const bow = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.05, 8, 16, Math.PI), woodMat);
+        bow.position.set(0.5, 0.7, 0.2); bow.rotation.y = Math.PI/2; bow.castShadow = true;
+        weaponGroup.add(bow);
+    } else if (config.name === "Gigante") {
+        const fist1 = new THREE.Mesh(new THREE.SphereGeometry(0.25), skinMat); fist1.position.set(0.6, 0.6, 0.2); fist1.castShadow = true;
+        const fist2 = new THREE.Mesh(new THREE.SphereGeometry(0.25), skinMat); fist2.position.set(-0.6, 0.6, 0.2); fist2.castShadow = true;
+        weaponGroup.add(fist1, fist2);
+    } else if (config.name === "Mago") {
+        const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.2), woodMat);
+        staff.position.set(0.5, 0.7, 0.2); staff.castShadow = true;
+        const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.15), new THREE.MeshStandardMaterial({color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 0.5}));
+        gem.position.set(0.5, 1.3, 0.2);
+        weaponGroup.add(staff, gem);
+    } else if (config.name === "Bárbaro") {
+        const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.8), woodMat); handle.castShadow = true;
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.08), ironMat); blade.position.set(0.2, 0.3, 0); blade.castShadow = true;
+        const axe = new THREE.Group(); axe.add(handle, blade); axe.position.set(0.5, 0.7, 0.2);
+        weaponGroup.add(axe);
+    }
+
+    group.add(body, head, weaponGroup);
+    group.scale.set(scale, scale, scale);
+    return group;
 }
 
 let towers = { player: null, enemy: null }, troops = [], gameActive = false, elixir = 0;
@@ -513,6 +464,13 @@ function startMatch() {
     troops = [];
     if(towers.player) scene.remove(towers.player.mesh);
     if(towers.enemy) scene.remove(towers.enemy.mesh);
+    
+    // Limpiar escena y cargar arena GLB
+    while(scene.children.length > 2) {
+        scene.remove(scene.children[scene.children.length - 1]);
+    }
+    
+    loadArenaFromGLB();
     towers.player = createTower(-16, 0x2196F3, true);
     towers.enemy = createTower(16, 0xF44336, false);
     gameActive = true; elixir = 5;

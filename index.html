@@ -1,23 +1,34 @@
-<section id="3D-graphics">
-  <h2>3D Graphics</h2>
-  <p>We have updated the loading mechanism for our GLB models to ensure they appear smoothly without any black screen issues. The following code snippet illustrates the improvements made in the rendering process:</p>
-  <script>
-    // Improved 3D model loading
+<script>
+    // Enhanced 3D graphics rendering for GLB model
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
     const loader = new THREE.GLTFLoader();
     loader.load('path/to/model.glb', function (gltf) {
-      const model = gltf.scene;
-      scene.add(model);
-      // Perform necessary transformations and adjustments
-      model.position.set(0, 0, 0);
-      model.scale.set(1, 1, 1);
-      // Ensure visibility and lighting are optimal
-      model.traverse((node) => {
-        if (node.isMesh) {
-          node.material.transparent = false;
-        }
-      });
-    }, undefined, function (error) {
-      console.error('An error occurred while loading the GLB model:', error);
+        scene.add(gltf.scene);
+        gltf.scene.traverse(function (node) {
+            if (node.isMesh) {
+                node.castShadow = true;
+                node.receiveShadow = true;
+            }
+        });
+        renderer.render(scene, camera);
     });
-  </script>
-</section>
+
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(5, 5, 5);
+    light.castShadow = true;
+    scene.add(light);
+    renderer.setShadowMapType(THREE.PCFSoftShadowMap);
+
+    camera.position.z = 5;
+
+    function animate() {
+        requestAnimationFrame(animate);
+        renderer.render(scene, camera);
+    }
+    animate();
+</script>

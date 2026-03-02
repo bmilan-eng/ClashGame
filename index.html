@@ -1,34 +1,60 @@
-<script>
-    // Enhanced 3D graphics rendering for GLB model
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clash Game</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; }
+        canvas { display: block; margin: auto; }
+        /* Additional styles */
+        .loading { position: absolute; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.8); } 
+    </style>
+</head>
+<body>
+    <div id="loading" class="loading">Loading...</div>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        // Authentication system
+        function authenticate() {
+            // Implement authentication logic
+        }
 
-    const loader = new THREE.GLTFLoader();
-    loader.load('path/to/model.glb', function (gltf) {
-        scene.add(gltf.scene);
-        gltf.scene.traverse(function (node) {
-            if (node.isMesh) {
-                node.castShadow = true;
-                node.receiveShadow = true;
-            }
-        });
-        renderer.render(scene, camera);
-    });
+        // Initialize game logic
+        function initGame() {
+            // Game setup code
+        }
 
-    const light = new THREE.DirectionalLight(0xffffff, 1);
-    light.position.set(5, 5, 5);
-    light.castShadow = true;
-    scene.add(light);
-    renderer.setShadowMapType(THREE.PCFSoftShadowMap);
+        // Character creation logic
+        function createCharacter(name) {
+            // Character creation code
+        }
 
-    camera.position.z = 5;
+        // Tower system logic
+        function createTower(type) {
+            // Tower creation code
+        }
 
-    function animate() {
-        requestAnimationFrame(animate);
-        renderer.render(scene, camera);
-    }
-    animate();
-</script>
+        // Load 3D models with enhanced lighting
+        function loadModel(url) {
+            const loader = new THREE.GLTFLoader();
+            loader.load(url, function (gltf) {
+                scene.add(gltf.scene);
+                // Adjust lighting for enhanced graphics
+                const light = new THREE.DirectionalLight(0xffffff, 1);
+                light.position.set(1, 1, 1);
+                scene.add(light);
+                const ambientLight = new THREE.AmbientLight(0x404040);
+                scene.add(ambientLight);
+            }, undefined, function (error) {
+                console.error('An error occurred loading the model:', error);
+            });
+        }
+
+        // Start the game when the user is authenticated
+        authenticate();
+        initGame();
+        loadModel('path/to/model.glb');
+    </script>
+</body>
+</html>

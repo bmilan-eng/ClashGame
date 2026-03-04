@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mini Clash 3D - Battle Pass Edition</title>
+    <title>Mini Clash 3D - Ultimate Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root { --gold: #FFD700; --elixir: #ff00ff; --blue: #2196F3; --red: #F44336; --dark: #121212; --purple: #9b59b6; }
+        :root { --gold: #FFD700; --elixir: #ff00ff; --blue: #2196F3; --red: #F44336; --dark: #121212; --purple: #a55eea; }
         body { margin: 0; overflow: hidden; font-family: 'Verdana', sans-serif; background: #000; color: white; user-select: none; }
 
         .screen {
@@ -37,7 +37,7 @@
         .btn-green { background: linear-gradient(#2ecc71, #27ae60); color: white; }
         .btn-blue { background: linear-gradient(#3498db, #2980b9); color: white; }
         .btn-red { background: linear-gradient(#e74c3c, #c0392b); color: white; }
-        .btn-purple { background: linear-gradient(#9b59b6, #8e44ad); color: white; }
+        .btn-purple { background: linear-gradient(#a55eea, #8854d0); color: white; }
         .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,0.4); }
 
         #screen-lobby { background: linear-gradient(135deg, #1a2a3a 0%, #000 100%); flex-direction: row; align-items: stretch; }
@@ -54,14 +54,13 @@
         /* Estilos Pase de Batalla */
         #bp-modal {
             position: fixed; top: 10%; left: 10%; width: 80%; height: 80%;
-            background: #1a1a1a; border: 4px solid var(--purple); border-radius: 20px;
-            z-index: 600; display: none; padding: 20px; flex-direction: column;
+            background: rgba(20, 20, 20, 0.95); border: 4px solid var(--purple);
+            border-radius: 20px; z-index: 600; display: none; padding: 20px; flex-direction: column;
         }
-        .bp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; overflow-y: auto; margin-top: 20px; padding: 10px; }
-        .bp-item { background: #333; padding: 15px; border-radius: 10px; text-align: center; border: 2px solid #444; position: relative; }
-        .bp-item.unlocked { border-color: var(--gold); background: #443a1a; }
-        .bp-item.claimed { opacity: 0.6; }
-        .bp-badge { position: absolute; top: -10px; left: -10px; background: var(--purple); padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; font-weight: bold; }
+        .bp-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; overflow-y: auto; padding: 10px; }
+        .bp-lvl { background: #333; padding: 10px; border-radius: 10px; text-align: center; border: 2px solid #444; position: relative; }
+        .bp-lvl.unlocked { border-color: var(--gold); background: #443a1a; }
+        .bp-lvl.claimed { opacity: 0.5; }
 
         #admin-modal, #box-modal { 
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -89,6 +88,7 @@
     <div id="screen-login" class="screen">
         <div class="panel">
             <h1 style="margin:0">MINI CLASH <span style="color:var(--gold)">3D</span></h1>
+            <p style="font-size: 0.8rem; color: #aaa;">Inicia sesión o regístrate</p>
             <input type="email" id="auth-email" placeholder="Correo Electrónico">
             <input type="text" id="auth-nick" placeholder="Nickname">
             <input type="password" id="auth-pass" placeholder="Contraseña">
@@ -113,7 +113,7 @@
                 <span>💰 <b id="stat-gold">0</b></span>
                 <div style="display:flex; align-items:center; gap:10px;">
                     <span>👤 <b id="display-user">?</b></span>
-                    <button class="btn btn-purple" style="width:auto; margin:0; padding: 5px 15px;" onclick="toggleBP(true)">🎫 PASE</button>
+                    <button class="btn btn-purple" style="margin:0; padding: 5px 15px; width:auto;" onclick="toggleBP(true)">🎫 PASE</button>
                 </div>
                 <span>🏆 <b id="stat-wins">0</b></span>
             </div>
@@ -127,7 +127,7 @@
                     <div id="deck-grid" class="grid"></div>
                 </div>
                 <div style="flex:1; display:flex; flex-direction:column;">
-                    <h3>🆙 MEJORAR</h3>
+                    <h3>🆙 MEJORAR (MÁX 5)</h3>
                     <div id="upgrade-grid" class="grid"></div>
                 </div>
             </div>
@@ -136,17 +136,18 @@
 
     <div id="bp-modal">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h2 style="color:var(--purple); margin:0;">BATTLE PASS: NIVEL <span id="bp-lvl-display">1</span></h2>
-            <div id="bp-xp-text" style="font-weight:bold;">XP: 0/50</div>
+            <h2 style="color:var(--purple); margin:0;">BATTLE PASS (NIVEL <span id="bp-lvl-val">1</span>)</h2>
+            <div id="bp-xp-val">XP: 0/50</div>
             <button class="btn btn-red" style="width:auto; margin:0;" onclick="toggleBP(false)">CERRAR</button>
         </div>
-        <div id="bp-items-container" class="bp-grid"></div>
+        <hr style="border:1px solid #333; width:100%; margin:15px 0;">
+        <div id="bp-list" class="bp-container"></div>
     </div>
 
     <div id="box-modal">
         <h2 id="box-title">🎁 CAJA SORPRESA</h2>
         <div id="box-content"></div>
-        <div id="box-reward-action" style="margin-top:20px;"></div>
+        <div id="box-action" style="margin-top:20px;"></div>
     </div>
 
     <div id="admin-modal">
@@ -172,18 +173,6 @@ let currentUser = null;
 let peer = null, conn = null, isMultiplayer = false;
 let particles = [];
 
-const CHARS_DB = [];
-const types = ["Guerrero", "Arquero", "Gigante", "Mago", "Caballero", "Bárbaro"];
-const icons = ["⚔️", "🏹", "🧔", "🔥", "🛡️", "🪓"];
-for(let i=0; i<50; i++) {
-    const t = i % types.length;
-    CHARS_DB.push({
-        id: i, name: types[t], emoji: icons[t],
-        hp: 120 + (i*15), dmg: 25 + (i*5), cost: 2 + (i%4), speed: 2 + Math.random(),
-        price: i * 200, color: new THREE.Color().setHSL((i*0.13)%1, 0.7, 0.5).getHex()
-    });
-}
-
 // --- SISTEMA DE CUENTAS ---
 window.onload = () => {
     const activeUser = localStorage.getItem('CLASH_ACTIVE_SESSION');
@@ -191,16 +180,16 @@ window.onload = () => {
         let db = JSON.parse(localStorage.getItem('CLASH_DB_SECURE') || '{}');
         if(db[activeUser]) {
             currentUser = db[activeUser];
-            initUserData();
+            initBPData();
             enterLobby();
         }
     }
 };
 
-function initUserData() {
+function initBPData() {
     if(!currentUser.levels) currentUser.levels = {};
-    if(!currentUser.bpLevel) currentUser.bpLevel = 1;
-    if(!currentUser.bpXP) currentUser.bpXP = 0;
+    if(currentUser.bpLevel === undefined) currentUser.bpLevel = 1;
+    if(currentUser.bpXP === undefined) currentUser.bpXP = 0;
     if(!currentUser.bpClaimed) currentUser.bpClaimed = [];
 }
 
@@ -208,7 +197,6 @@ function handleAuth(mode) {
     const email = document.getElementById('auth-email').value.trim().toLowerCase();
     const nick = document.getElementById('auth-nick').value.trim();
     const pass = document.getElementById('auth-pass').value;
-
     if(!email || !pass || (mode==='register' && !nick)) return alert("Faltan datos");
     let db = JSON.parse(localStorage.getItem('CLASH_DB_SECURE') || '{}');
 
@@ -221,7 +209,7 @@ function handleAuth(mode) {
         const user = db[nick];
         if(user && user.pass === pass && user.email === email) {
             currentUser = user;
-            initUserData();
+            initBPData();
             localStorage.setItem('CLASH_ACTIVE_SESSION', currentUser.nick);
             enterLobby();
         } else { alert("Datos incorrectos"); }
@@ -253,6 +241,118 @@ function updateUI() {
     renderGrids();
 }
 
+// --- LOGICA DEL PASE DE BATALLA ---
+function toggleBP(show) {
+    const modal = document.getElementById('bp-modal');
+    modal.style.display = show ? 'flex' : 'none';
+    if(show) renderBP();
+}
+
+function renderBP() {
+    document.getElementById('bp-lvl-val').innerText = currentUser.bpLevel;
+    document.getElementById('bp-xp-val').innerText = `XP: ${currentUser.bpXP}/50`;
+    const list = document.getElementById('bp-list');
+    list.innerHTML = '';
+
+    for(let i=1; i<=50; i++) {
+        const isBox = i % 5 === 0; // Cajas cada 5 niveles para que sean menos
+        const unlocked = currentUser.bpLevel >= i;
+        const claimed = currentUser.bpClaimed.includes(i);
+        const div = document.createElement('div');
+        div.className = `bp-lvl ${unlocked ? 'unlocked' : ''} ${claimed ? 'claimed' : ''}`;
+        div.innerHTML = `
+            <small>Lvl ${i}</small>
+            <div style="font-size:1.8rem; margin:5px 0;">${isBox ? '🎁' : '💰'}</div>
+            ${unlocked && !claimed ? `<button class="btn btn-green" style="font-size:0.6rem; padding:5px;" onclick="claimReward(${i})">OBTENER</button>` : ''}
+            ${claimed ? '✅' : ''}
+        `;
+        list.appendChild(div);
+    }
+}
+
+function claimReward(lvl) {
+    if(currentUser.bpClaimed.includes(lvl)) return;
+    
+    if(lvl % 5 === 0) {
+        openBox();
+    } else {
+        const gold = 200;
+        currentUser.gold += gold;
+        alert(`¡Has recibido ${gold} monedas!`);
+    }
+
+    currentUser.bpClaimed.push(lvl);
+    
+    // Reiniciar pase al completar el 50
+    if(lvl === 50) {
+        alert("¡Pase completado! Se reiniciará.");
+        currentUser.bpLevel = 1;
+        currentUser.bpXP = 0;
+        currentUser.bpClaimed = [];
+    }
+    
+    save(); updateUI(); renderBP();
+}
+
+function openBox() {
+    const modal = document.getElementById('box-modal');
+    const content = document.getElementById('box-content');
+    const action = document.getElementById('box-action');
+    modal.style.display = 'block';
+    action.innerHTML = '';
+
+    // Probabilidad: Oro (55%) vs Mejora (45%) -> Oro tiene 10% más
+    const roll = Math.random();
+    if(roll < 0.55) {
+        const amount = Math.floor(Math.random() * 901) + 100; // Máximo 1000
+        content.innerHTML = `<h3>💰 ¡DINERO!</h3><p>Has ganado ${amount} monedas.</p>`;
+        currentUser.gold += amount;
+        action.innerHTML = `<button class="btn btn-blue" onclick="closeBox()">OK</button>`;
+    } else {
+        content.innerHTML = `<h3>🆙 ¡MEJORA!</h3><p>Elige un personaje de tu mazo para subirlo +1 nivel:</p>`;
+        const grid = document.createElement('div');
+        grid.style.display = 'grid'; grid.style.gridTemplateColumns = '1fr 1fr'; grid.style.gap = '5px';
+        
+        currentUser.owned.forEach(id => {
+            const c = CHARS_DB[id];
+            const lvl = currentUser.levels[id] || 0;
+            if(lvl < 5) {
+                const b = document.createElement('button');
+                b.className = 'btn btn-purple'; b.style.fontSize = '0.7rem';
+                b.innerText = `${c.emoji} Lvl ${lvl} -> ${lvl+1}`;
+                b.onclick = () => {
+                    currentUser.levels[id] = lvl + 1;
+                    alert(`${c.name} ahora es nivel ${lvl+1}`);
+                    closeBox();
+                };
+                grid.appendChild(b);
+            }
+        });
+        content.appendChild(grid);
+        if(grid.children.length === 0) {
+            content.innerHTML = "<p>¡Todos están al máximo! Recibes 1000 monedas.</p>";
+            currentUser.gold += 1000;
+            action.innerHTML = `<button class="btn btn-blue" onclick="closeBox()">OK</button>`;
+        }
+    }
+    save(); updateUI();
+}
+
+function closeBox() { document.getElementById('box-modal').style.display = 'none'; }
+
+// --- RESTO DEL JUEGO (MANTENIENDO GRÁFICOS) ---
+const CHARS_DB = [];
+const types = ["Guerrero", "Arquero", "Gigante", "Mago", "Caballero", "Bárbaro"];
+const icons = ["⚔️", "🏹", "🧔", "🔥", "🛡️", "🪓"];
+for(let i=0; i<50; i++) {
+    const t = i % types.length;
+    CHARS_DB.push({
+        id: i, name: types[t], emoji: icons[t],
+        hp: 120 + (i*15), dmg: 25 + (i*5), cost: 2 + (i%4), speed: 2 + Math.random(),
+        price: i * 200, color: new THREE.Color().setHSL((i*0.13)%1, 0.7, 0.5).getHex()
+    });
+}
+
 function renderGrids() {
     const shop = document.getElementById('shop-grid'); shop.innerHTML = '';
     const deck = document.getElementById('deck-grid'); deck.innerHTML = '';
@@ -281,143 +381,14 @@ function renderGrids() {
         const isMax = lvl >= 5;
         const uDiv = document.createElement('div');
         uDiv.className = 'item-card';
-        uDiv.innerHTML = `<div style="font-size:1.1rem">${c.emoji} Lvl ${lvl}</div><div class="stats-text">${isMax ? 'MÁX' : '💰'+upgradeCost}</div>`;
+        uDiv.innerHTML = `<div style="font-size:1.1rem">${c.emoji} Lvl ${lvl}</div><div class="stats-text">${isMax ? 'NIVEL MÁX' : '💰'+upgradeCost}</div>`;
         uDiv.onclick = () => {
-            if(isMax) return alert("Nivel máximo (5)");
+            if(isMax) return alert("Nivel máximo 5");
             if(currentUser.gold >= upgradeCost) { currentUser.gold -= upgradeCost; currentUser.levels[id] = lvl + 1; save(); updateUI(); }
         };
         upg.appendChild(uDiv);
     });
 }
-
-// --- LOGICA DEL PASE DE BATALLA ---
-function toggleBP(show) {
-    const modal = document.getElementById('bp-modal');
-    modal.style.display = show ? 'flex' : 'none';
-    if(show) renderBP();
-}
-
-function renderBP() {
-    document.getElementById('bp-lvl-display').innerText = currentUser.bpLevel;
-    document.getElementById('bp-xp-text').innerText = `XP: ${currentUser.bpXP}/50`;
-    const container = document.getElementById('bp-items-container');
-    container.innerHTML = '';
-
-    for(let i=1; i<=50; i++) {
-        const isCaja = i % 5 === 0;
-        const unlocked = currentUser.bpLevel >= i;
-        const claimed = currentUser.bpClaimed.includes(i);
-        
-        const div = document.createElement('div');
-        div.className = `bp-item ${unlocked ? 'unlocked' : ''} ${claimed ? 'claimed' : ''}`;
-        div.innerHTML = `
-            <div class="bp-badge">Lvl ${i}</div>
-            <div style="font-size:2rem; margin:10px 0;">${isCaja ? '🎁' : '💰'}</div>
-            <small>${isCaja ? 'Caja Mágica' : 'Monedas'}</small>
-            ${unlocked && !claimed ? `<button class="btn btn-green" style="font-size:0.7rem; padding:5px;" onclick="claimReward(${i})">RECLAMAR</button>` : ''}
-            ${claimed ? '✅' : ''}
-        `;
-        container.appendChild(div);
-    }
-}
-
-function claimReward(lvl) {
-    if(currentUser.bpClaimed.includes(lvl)) return;
-    
-    if(lvl % 5 === 0) {
-        openBox();
-    } else {
-        const amount = Math.floor(Math.random() * 500) + 100;
-        currentUser.gold += amount;
-        alert(`¡Recompensa! +${amount} Oro`);
-    }
-
-    currentUser.bpClaimed.push(lvl);
-    
-    // Resetear pase si es el lvl 50
-    if(lvl === 50) {
-        alert("¡PASE COMPLETADO! Se reiniciará.");
-        currentUser.bpLevel = 1;
-        currentUser.bpXP = 0;
-        currentUser.bpClaimed = [];
-    }
-    
-    save();
-    updateUI();
-    renderBP();
-}
-
-function openBox() {
-    const modal = document.getElementById('box-modal');
-    const content = document.getElementById('box-content');
-    const action = document.getElementById('box-reward-action');
-    modal.style.display = 'block';
-    action.innerHTML = '';
-    
-    // Probabilidad: 55% Oro (10% más que la mejora), 45% Mejora
-    const roll = Math.random();
-    
-    if(roll < 0.55) {
-        const gold = Math.floor(Math.random() * 1000) + 100;
-        content.innerHTML = `<h3>💰 ¡ORO!</h3><p>Has ganado ${gold} monedas.</p>`;
-        currentUser.gold += gold;
-        action.innerHTML = `<button class="btn btn-blue" onclick="closeBox()">GENIAL</button>`;
-    } else {
-        content.innerHTML = `<h3>🆙 ¡MEJORA!</h3><p>Elige un personaje para subirlo de nivel (+1):</p>`;
-        const selectDiv = document.createElement('div');
-        selectDiv.style.display = 'grid'; selectDiv.style.gridTemplateColumns = '1fr 1fr'; selectDiv.style.gap = '5px';
-        
-        currentUser.owned.forEach(id => {
-            const c = CHARS_DB[id];
-            const lvl = currentUser.levels[id] || 0;
-            if(lvl < 5) {
-                const b = document.createElement('button');
-                b.className = 'btn btn-purple'; b.style.fontSize = '0.7rem';
-                b.innerText = `${c.emoji} ${c.name} (Lvl ${lvl})`;
-                b.onclick = () => {
-                    currentUser.levels[id] = lvl + 1;
-                    alert(`${c.name} ahora es nivel ${lvl+1}`);
-                    closeBox();
-                };
-                selectDiv.appendChild(b);
-            }
-        });
-        content.appendChild(selectDiv);
-        if(selectDiv.children.length === 0) {
-            content.innerHTML = "<p>¡Todos tus personajes están al máximo! Te damos 1000 de oro en su lugar.</p>";
-            currentUser.gold += 1000;
-            action.innerHTML = `<button class="btn btn-blue" onclick="closeBox()">OK</button>`;
-        }
-    }
-    save();
-    updateUI();
-}
-
-function closeBox() { document.getElementById('box-modal').style.display = 'none'; }
-
-// --- MOTOR DE JUEGO (REDUCIDO PARA EL EJEMPLO) ---
-function endMatch(win) {
-    gameActive = false;
-    if(win) {
-        currentUser.gold += 500;
-        currentUser.wins++;
-        currentUser.bpXP += 5;
-        if(currentUser.bpXP >= 50 && currentUser.bpLevel < 50) {
-            currentUser.bpXP = 0;
-            currentUser.bpLevel++;
-            alert("¡Nivel de Pase de Batalla subido!");
-        }
-        alert("¡VICTORIA! +500 Oro / +5 XP");
-    } else {
-        alert("DERROTA");
-    }
-    save();
-    document.getElementById('game-ui').classList.add('hidden');
-    document.getElementById('screen-lobby').classList.remove('hidden');
-    updateUI();
-}
-
-// ... Resto del código Three.js (igual al original) ...
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
@@ -426,8 +397,9 @@ camera.position.set(0, 32, 28); camera.lookAt(0, 0, 0);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
+const ambient = new THREE.AmbientLight(0xffffff, 0.65);
 const sun = new THREE.DirectionalLight(0xffffee, 1.2);
-sun.position.set(10, 30, 15); scene.add(new THREE.AmbientLight(0xffffff, 0.65), sun);
+sun.position.set(10, 30, 15); scene.add(ambient, sun);
 
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(46, 26), new THREE.MeshStandardMaterial({ color: 0x4aa144 }));
 ground.rotation.x = -Math.PI/2; scene.add(ground);
@@ -459,7 +431,7 @@ function startMatch() {
 }
 
 function startSoloGame() { isMultiplayer = false; startMatch(); }
-function quitMatch() { gameActive = false; document.getElementById('game-ui').classList.add('hidden'); document.getElementById('screen-lobby').classList.remove('hidden'); }
+function quitMatch() { gameActive = false; document.getElementById('game-ui').classList.add('hidden'); document.getElementById('screen-lobby').classList.remove('hidden'); updateUI(); }
 
 function spawnUnit(id, owner, z) {
     const c = CHARS_DB[id];
@@ -495,17 +467,14 @@ function animate() {
     document.getElementById('elixir-fill').style.width = (elixir * 10) + "%";
     document.getElementById('elixir-num').innerText = Math.floor(elixir);
 
-    if(Math.random() < 0.005) spawnUnit(Math.floor(Math.random()*4), 'enemy', (Math.random()-0.5)*8);
+    if(!isMultiplayer && Math.random() < 0.0035) spawnUnit(Math.floor(Math.random()*6), 'enemy', (Math.random()-0.5)*8);
 
     for(let i = troops.length-1; i>=0; i--) {
         const t = troops[i];
         if(t.hp <= 0) { scene.remove(t.mesh); t.bar.remove(); troops.splice(i,1); continue; }
         const tow = t.owner === 'player' ? towers.enemy : towers.player;
-        if(Math.abs(t.mesh.position.x - tow.x) < 2) {
-            tow.hp -= t.currentDmg * dt;
-        } else {
-            t.mesh.position.x += (t.owner === 'player' ? 1 : -1) * t.speed * dt;
-        }
+        if(Math.abs(t.mesh.position.x - tow.x) < 2) tow.hp -= t.currentDmg * dt;
+        else t.mesh.position.x += (t.owner === 'player' ? 1 : -1) * t.speed * dt;
         updateBar(t.mesh.position, t.bar, t.hp/t.maxHp);
     }
 
@@ -521,6 +490,24 @@ function updateBar(pos3d, bar, pct) {
     bar.style.left = (v.x * 0.5 + 0.5) * window.innerWidth + "px";
     bar.style.top = (-(v.y * 0.5 - 0.5) * window.innerHeight) - 40 + "px";
     bar.firstChild.style.width = Math.max(0, pct * 100) + "%";
+}
+
+function endMatch(win) {
+    gameActive = false;
+    if(win) {
+        currentUser.gold += 500; currentUser.wins++;
+        currentUser.bpXP += 5; // 5 XP por victoria
+        if(currentUser.bpXP >= 50 && currentUser.bpLevel < 50) {
+            currentUser.bpXP = 0;
+            currentUser.bpLevel++;
+            alert("¡Nivel de Pase de Batalla aumentado!");
+        }
+        alert("¡VICTORIA! +500 Monedas / +5 XP");
+    } else { alert("DERROTA"); }
+    save();
+    document.getElementById('game-ui').classList.add('hidden');
+    document.getElementById('screen-lobby').classList.remove('hidden');
+    updateUI();
 }
 
 function toggleAdmin(show) { document.getElementById('admin-modal').style.display = show ? 'block' : 'none'; }

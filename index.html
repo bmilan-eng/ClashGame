@@ -54,7 +54,7 @@
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: #400; padding: 30px; border: 4px solid var(--gold); 
             border-radius: 20px; z-index: 500; display: none; width: 300px;
-            box-shadow: 0 0 100px #000;
+            box-shadow: 0 0 100px #000; max-height: 90vh; overflow-y: auto;
         }
 
         #game-ui { position: absolute; width: 100%; height: 100%; pointer-events: none; z-index: 50; }
@@ -125,10 +125,15 @@
     <div id="admin-modal">
         <h2 style="margin:0; color:var(--gold)">ADMIN TOOLS</h2>
         <button class="btn btn-green" onclick="executeAdminGift(true)">DARME +10.000 ORO</button>
+        <button class="btn" style="background: linear-gradient(#e67e22, #d35400); color:white;" onclick="executeAdminTrophies(true, 50)">DARME +50 COPAS 🏆</button>
+        <button class="btn" style="background: linear-gradient(#8e44ad, #9b59b6); color:white;" onclick="executeAdminTrophies(true, -50)">QUITARME 50 COPAS 📉</button>
+        
         <hr style="border:1px solid #600; margin:15px 0;">
         <input type="text" id="adm-target" placeholder="Nick del otro jugador">
-        <input type="number" id="adm-amount" placeholder="Cantidad">
+        <input type="number" id="adm-amount" placeholder="Cantidad (+ o -)">
+        
         <button class="btn btn-blue" onclick="executeAdminGift(false)">OTORGAR ORO</button>
+        <button class="btn" style="background: linear-gradient(#e67e22, #d35400); color:white;" onclick="executeAdminTrophies(false, 0)">OTORGAR/QUITAR COPAS 🏆</button>
         <button class="btn btn-red" onclick="toggleAdmin(false)">CERRAR</button>
     </div>
 
@@ -509,8 +514,45 @@ function endMatch(win) {
 }
 
 function toggleAdmin(show) { document.getElementById('admin-modal').style.display = show ? 'block' : 'none'; }
+
 function executeAdminGift(self) {
     if(self) { currentUser.gold += 10000; save(); updateUI(); alert("¡Oro recibido!"); }
+}
+
+// --- NUEVA FUNCIÓN AÑADIDA PARA ADMINISTRAR COPAS ---
+function executeAdminTrophies(self, fixedAmount) {
+    let db = JSON.parse(localStorage.getItem('CLASH_DB_SECURE') || '{}');
+    
+    if(self) {
+        // Modificar las copas del propio admin
+        currentUser.wins = Math.max(0, currentUser.wins + fixedAmount);
+        save(); 
+        updateUI(); 
+        alert(`¡Copas actualizadas! Ahora tienes ${currentUser.wins} 🏆`);
+    } else {
+        // Modificar las copas de otro usuario
+        const targetNick = document.getElementById('adm-target').value.trim();
+        const amount = parseInt(document.getElementById('adm-amount').value);
+        
+        if(!targetNick || isNaN(amount)) {
+            return alert("Por favor, rellena el Nick y la Cantidad numérica.");
+        }
+        
+        if(targetNick === currentUser.nick) {
+            // Si el admin pone su propio nombre
+            currentUser.wins = Math.max(0, currentUser.wins + amount);
+            save();
+            updateUI();
+            alert(`¡Tus copas han sido actualizadas! Ahora tienes ${currentUser.wins} 🏆`);
+        } else if(db[targetNick]) {
+            // Si el nombre existe en la base de datos local
+            db[targetNick].wins = Math.max(0, db[targetNick].wins + amount);
+            localStorage.setItem('CLASH_DB_SECURE', JSON.stringify(db));
+            alert(`¡Éxito! Las copas de ${targetNick} han sido actualizadas a ${db[targetNick].wins} 🏆`);
+        } else {
+            alert("Jugador no encontrado en la base de datos.");
+        }
+    }
 }
 </script>
 

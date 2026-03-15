@@ -669,5 +669,144 @@ function claimTier(tier) {
     openBattlePass(); // Refrescar el modal
 }
 </script>
+
+<script>
+(function initBolaDeFuego() {
+    // 1. Crear el botón de la Bola de Fuego dinámicamente
+    const fbBtn = document.createElement('div');
+    fbBtn.className = 'card';
+    fbBtn.innerHTML = `<span style="color:var(--elixir)">💧4</span><div style="font-size:1.5rem">☄️</div>`;
+    fbBtn.style.position = 'absolute';
+    fbBtn.style.right = '20px';
+    fbBtn.style.bottom = '180px';
+    fbBtn.style.border = '3px solid #ff5722';
+    fbBtn.style.background = '#222';
+    fbBtn.style.color = '#fff';
+    fbBtn.title = 'Bola de Fuego (Daño en área: 325)';
+    fbBtn.style.zIndex = '100';
+    fbBtn.style.pointerEvents = 'auto';
+
+    let fireballActive = false;
+    let activeFireballs = [];
+
+    // Lógica para seleccionar/deseleccionar el hechizo
+    fbBtn.onclick = () => {
+        if(elixir < 4) return alert("¡No tienes suficiente elixir (4)!");
+        fireballActive = !fireballActive;
+        fbBtn.style.background = fireballActive ? '#ff5722' : '#222';
+    };
+
+    // Inyectarlo cuando la UI de juego esté disponible
+    const checkUI = setInterval(() => {
+        const ui = document.getElementById('game-ui');
+        if(ui) { ui.appendChild(fbBtn); clearInterval(checkUI); }
+    }, 500);
+
+    // 2. Sistema de Raycaster para detectar dónde hace clic el usuario
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    window.addEventListener('pointerdown', (event) => {
+        if(!fireballActive || !gameActive) return;
+
+        // Evitar que el clic en botones interfiera con la pantalla
+        if(event.target.closest('.card') || event.target.closest('button')) return;
+
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObject(ground); // Solo colisiona con el suelo
+        
+        if(intersects.length > 0) {
+            const pt = intersects[0].point;
+            elixir -= 4; // Coste del hechizo
+            fireballActive = false;
+            fbBtn.style.background = '#222'; // Reset visual
+            
+            lanzarBolaDeFuego(pt);
+            
+            // Si estamos en multijugador, avisamos al rival
+            if(isMultiplayer && conn) {
+                conn.send({type: 'fireball', x: pt.x, z: pt.z});
+            }
+        }
+    });
+
+    // 3. Crear el meteorito visualmente
+    function lanzarBolaDeFuego(targetPos) {
+        const fbMesh = new THREE.Mesh(
+            new THREE.SphereGeometry(1.2, 16, 16),
+            new THREE.MeshStandardMaterial({color: 0xff3300, emissive: 0xff8800, emissiveIntensity: 0.8})
+        );
+        fbMesh.position.set(targetPos.x, 25, targetPos.z); // Se lanza desde arriba (y=25)
+        scene.add(fbMesh);
+        activeFireballs.push({mesh: fbMesh, target: targetPos, speed: 25});
+    }
+
+    // 4. Bucle de animación paralelo EXCLUSIVO para hechizos (no toca tu animate original)
+    function animarHechizos() {
+        requestAnimationFrame(animarHechizos);
+        if(!gameActive) return;
+        
+        const dt = 0.016;
+        for(let i = activeFireballs.length - 1; i >= 0; i--) {
+            const fb = activeFireballs[i];
+            fb.mesh.position.y -= fb.speed * dt; // Gravedad simulada
+            
+            if(fb.mesh.position.y <= 0) {
+                // Impacto en el suelo: Efectos de partículas de tu código
+                createExplosion(fb.target, 0xff3300);
+                createExplosion(new THREE.Vector3(fb.target.x, 1, fb.target.z), 0xffff00);
+                scene.remove(fb.mesh);
+                
+                aplicarDanoArea(fb.target);
+                activeFireballs.splice(i, 1);
+            }
+        }
+    }
+    animarHechizos(); // Iniciar este bucle
+
+    // 5. Aplicar daño a todo lo que esté en el área
+    function aplicarDanoArea(pos) {
+        const damage = 325;
+        const radius = 3.5;
+        
+        // Daño a las tropas (tanto tuyas como enemigas si están cerca)
+        troops.forEach(t => {
+            if(t.mesh.position.distanceTo(pos) <= radius) {
+                t.hp -= damage;
+            }
+        });
+        
+        // Daño a las torres
+        if(towers.player && new THREE.Vector3(towers.player.x, 0, 0).distanceTo(pos) <= radius + 1) {
+            towers.player.hp -= damage;
+            updateBar(new THREE.Vector3(towers.player.x, 6, 0), towers.player.bar, towers.player.hp/towers.player.maxHp);
+        }
+        if(towers.enemy && new THREE.Vector3(towers.enemy.x, 0, 0).distanceTo(pos) <= radius + 1) {
+            towers.enemy.hp -= damage;
+            updateBar(new THREE.Vector3(towers.enemy.x, 6, 0), towers.enemy.bar, towers.enemy.hp/towers.enemy.maxHp);
+            // Sincronizar el daño directo a la torre enemiga si hay multijugador
+            if(isMultiplayer && conn) conn.send({type:'tower_hp', hp: towers.enemy.hp}); 
+        }
+    }
+
+    // 6. Interceptar las conexiones multijugador sigilosamente
+    let connPatcheada = false;
+    setInterval(() => {
+        if(isMultiplayer && conn && !connPatcheada) {
+            conn.on('data', data => {
+                if(data.type === 'fireball') {
+                    // El eje X se invierte porque en tu juego el enemigo recibe las cosas en espejo (-X)
+                    lanzarBolaDeFuego(new THREE.Vector3(-data.x, 0, data.z));
+                }
+            });
+            connPatcheada = true;
+        }
+        if(!isMultiplayer || !conn) connPatcheada = false;
+    }, 1000);
+})();
+</script>
 </body>
 </html>

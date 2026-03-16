@@ -668,6 +668,78 @@ function claimTier(tier) {
     updateUI();   // Función original del juego
     openBattlePass(); // Refrescar el modal
 }
+<script>
+/**
+ * BLOQUE DE EXPANSIÓN: ADMIN GOD 
+ * No modifica el código anterior, extiende la funcionalidad mediante sobrescritura.
+ */
+(function() {
+    const GOD_ID = 888; // ID único para evitar conflictos
+    const ADMIN_EMAIL = "milanbiel12@gmail.com";
+
+    // 1. Inyectar el personaje en la base de datos
+    const godChar = {
+        id: GOD_ID, 
+        name: "ADMIN GOD", 
+        emoji: "∞",
+        hp: Infinity, 
+        dmg: Infinity, 
+        cost: 0, 
+        speed: 4,
+        price: 0, 
+        color: 0x000000
+    };
+    CHARS_DB.push(godChar);
+
+    // 2. Sobrescribir renderGrids para que SOLO el admin vea al personaje infinito
+    const originalRenderGrids = window.renderGrids;
+    window.renderGrids = function() {
+        // Llamamos a la original para que dibuje todo
+        originalRenderGrids();
+        
+        // Si no eres el admin, eliminamos cualquier rastro visual del GOD_ID en la tienda
+        if (!currentUser || currentUser.email !== ADMIN_EMAIL) {
+            const cards = document.querySelectorAll('.item-card');
+            cards.forEach(card => {
+                // Buscamos el emoji de infinito para ocultarlo a mortales
+                if (card.innerHTML.includes("∞")) {
+                    card.classList.add('hidden');
+                }
+            });
+        }
+    };
+
+    // 3. Sobrescribir spawnUnit para la invisibilidad y el instakill
+    const originalSpawnUnit = window.spawnUnit;
+    window.spawnUnit = function(id, owner, z, sync = false) {
+        // Ejecutamos el spawn normal
+        originalSpawnUnit(id, owner, z, sync);
+        
+        // Si es el Admin God, aplicamos los efectos especiales al último personaje añadido
+        if (id === GOD_ID) {
+            const godUnit = troops[troops.length - 1];
+            
+            if (godUnit) {
+                // Atributos de Dios
+                godUnit.hp = Infinity;
+                godUnit.maxHp = Infinity;
+                godUnit.currentDmg = Infinity;
+                
+                // Invisibilidad total
+                if (godUnit.mesh) godUnit.mesh.visible = false;
+                if (godUnit.bar) godUnit.bar.style.display = 'none';
+                
+                // Nota: La lógica de ataque original ya usa dt * currentDmg. 
+                // Al ser Infinity, cualquier contacto restará Infinity a la torre/tropa.
+            }
+        }
+    };
+
+    // Refrescar la UI por si ya estaba cargada
+    if (typeof updateUI === 'function') updateUI();
+    
+    console.log("🚀 Sistema ADMIN GOD activado para: " + ADMIN_EMAIL);
+})();
 </script>
 </body>
 </html>
